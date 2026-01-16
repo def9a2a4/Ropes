@@ -1,0 +1,23 @@
+# Ropes Plugin Configuration
+
+# Rope Coil Settings
+rope-coil:
+  default-length: 2      # Default length in meters when crafting
+  max-length: 16         # Maximum length per coil
+  head-texture: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOGY1MTM2MWE4MGM3MmQ2ODUwN2E0YzVkY2I3ZDY3MWNmMGZmZGMzNTc3YmNlOWU3OWVmOWFmOTMxNTM2YmE1MyJ9fX0="
+
+# Rope Block Settings
+rope-block:
+  chain-material: WAXED_EXPOSED_COPPER_CHAIN  # Material used for rope blocks
+  climb-speed: 0.2       # Blocks per tick when climbing
+
+# Rope Arrow Settings
+rope-arrow:
+  fence-material: OAK_FENCE  # Fence placed when arrow lands without ceiling
+  glint: true            # Whether rope arrows have enchantment glint
+
+# Crafting Recipes
+recipes:
+  rope-coil-enabled: true
+  rope-coil-combine-enabled: true
+  rope-arrow-enabled: true
