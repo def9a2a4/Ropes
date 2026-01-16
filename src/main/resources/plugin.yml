@@ -1,0 +1,6 @@
+name: Ropes
+main: anon.def9a2a4.ropes.RopesPlugin
+version: ${version}
+api-version: 1.21
+author: def9a2a4
+description: ropes you can place, shoot out of a bow, and climb.
