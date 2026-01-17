@@ -1,0 +1,9 @@
+# {"textures":{"SKIN":{"url":"http://textures.minecraft.net/texture/<texture_id>"}}}
+
+rope_item: https://textures.minecraft.net/texture/7c7c4ecfe45f85b8a687264616f15a20c9cc24d1f279a65e0e40dc6375ceb9e9
+rope_placed: https://textures.minecraft.net/texture/e57a8b3c4b0ac7a21836d4528d54755d9116dbdd23dab5d71f6d69b0803298c5
+
+# {"textures":{"SKIN":{"url":"http://textures.minecraft.net/texture/7c7c4ecfe45f85b8a687264616f15a20c9cc24d1f279a65e0e40dc6375ceb9e9"}}}
+# {"textures":{"SKIN":{"url":"http://textures.minecraft.net/texture/e57a8b3c4b0ac7a21836d4528d54755d9116dbdd23dab5d71f6d69b0803298c5"}}}
+rope_item_b64: eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvN2M3YzRlY2ZlNDVmODViOGE2ODcyNjQ2MTZmMTVhMjBjOWNjMjRkMWYyNzlhNjVlMGU0MGRjNjM3NWNlYjllOSJ9fX0K
+rope_placed_b64: eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZTU3YThiM2M0YjBhYzdhMjE4MzZkNDUyOGQ1NDc1NWQ5MTE2ZGJkZDIzZGFiNWQ3MWY2ZDY5YjA4MDMyOThjNSJ9fX0K

@@ -3,8 +3,10 @@ package anon.def9a2a4.ropes;
 import com.destroystokyo.paper.profile.PlayerProfile;
 import com.destroystokyo.paper.profile.ProfileProperty;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -23,11 +25,31 @@ public class Items {
     private final RopesPlugin plugin;
     private final NamespacedKey ROPE_LENGTH_KEY;
     private final NamespacedKey ARROW_ROPE_LENGTH_KEY;
+    private final MiniMessage miniMessage;
 
     public Items(RopesPlugin plugin) {
         this.plugin = plugin;
         this.ROPE_LENGTH_KEY = new NamespacedKey(plugin, "rope_length");
         this.ARROW_ROPE_LENGTH_KEY = new NamespacedKey(plugin, "arrow_rope_length");
+        this.miniMessage = MiniMessage.miniMessage();
+    }
+
+    /**
+     * Parses a MiniMessage string with placeholder replacements.
+     * Automatically disables italic decoration (Minecraft default for custom items).
+     */
+    private Component parseText(String template, TagResolver... resolvers) {
+        Component component = miniMessage.deserialize(template, TagResolver.resolver(resolvers));
+        return component.decoration(TextDecoration.ITALIC, false);
+    }
+
+    /**
+     * Parses lore lines from templates with placeholders.
+     */
+    private List<Component> parseLore(List<String> templates, TagResolver... resolvers) {
+        return templates.stream()
+            .map(template -> parseText(template, resolvers))
+            .toList();
     }
 
     public ItemStack createRopeCoil(int meters) {
@@ -39,15 +61,17 @@ public class Items {
         profile.setProperty(new ProfileProperty("textures", plugin.getConfiguration().getHeadTexture()));
         meta.setPlayerProfile(profile);
 
-        // Set display name
-        meta.displayName(Component.text("Rope Coil", NamedTextColor.GOLD)
-            .decoration(TextDecoration.ITALIC, false));
+        // Get item config
+        Config.ItemDisplayConfig itemConfig = plugin.getConfiguration().getRopeCoilItemConfig();
 
-        // Set lore
-        meta.lore(List.of(
-            Component.text(meters + " meters of rope", NamedTextColor.GRAY)
-                .decoration(TextDecoration.ITALIC, false)
-        ));
+        // Create placeholder resolver
+        TagResolver metersPlaceholder = Placeholder.unparsed("meters", String.valueOf(meters));
+
+        // Set display name with MiniMessage
+        meta.displayName(parseText(itemConfig.nameTemplate(), metersPlaceholder));
+
+        // Set lore with MiniMessage
+        meta.lore(parseLore(itemConfig.loreTemplates(), metersPlaceholder));
 
         // Store length in PDC
         meta.getPersistentDataContainer().set(ROPE_LENGTH_KEY, PersistentDataType.INTEGER, meters);
@@ -79,17 +103,17 @@ public class Items {
         ItemStack arrow = new ItemStack(Material.ARROW);
         ItemMeta meta = arrow.getItemMeta();
 
-        // Set display name
-        meta.displayName(Component.text("Rope Arrow", NamedTextColor.GOLD)
-            .decoration(TextDecoration.ITALIC, false));
+        // Get item config
+        Config.ItemDisplayConfig itemConfig = plugin.getConfiguration().getRopeArrowItemConfig();
 
-        // Set lore
-        meta.lore(List.of(
-            Component.text("Shoots a rope where it lands", NamedTextColor.GRAY)
-                .decoration(TextDecoration.ITALIC, false),
-            Component.text(ropeLength + " meters of rope", NamedTextColor.DARK_GRAY)
-                .decoration(TextDecoration.ITALIC, false)
-        ));
+        // Create placeholder resolver
+        TagResolver metersPlaceholder = Placeholder.unparsed("meters", String.valueOf(ropeLength));
+
+        // Set display name with MiniMessage
+        meta.displayName(parseText(itemConfig.nameTemplate(), metersPlaceholder));
+
+        // Set lore with MiniMessage
+        meta.lore(parseLore(itemConfig.loreTemplates(), metersPlaceholder));
 
         // Add enchantment glint if configured
         if (plugin.getConfiguration().isRopeArrowGlint()) {

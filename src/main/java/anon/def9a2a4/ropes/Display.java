@@ -28,7 +28,7 @@ public class Display {
 
     /**
      * Spawns a rope display entity at the given location.
-     * The display is a stretched player head (0.2x, 2x, 0.2x scale).
+     * Scale and Y offset are configurable in config.yml.
      */
     public ItemDisplay spawnRopeDisplay(Location loc) {
         World world = loc.getWorld();
@@ -37,13 +37,18 @@ public class Display {
         // Center the display in the block
         Location spawnLoc = loc.getBlock().getLocation().add(0.5, 0.5, 0.5);
 
+        // Get configurable scale and offset
+        Config config = plugin.getConfiguration();
+        Vector3f scale = config.getDisplayScale().toVector3f();
+        float offsetY = config.getDisplayOffsetY();
+
         return world.spawn(spawnLoc, ItemDisplay.class, display -> {
             display.setItemStack(createRopeDisplayItem());
             display.setTransformation(new Transformation(
-                new Vector3f(0, 0, 0),           // translation
-                new AxisAngle4f(0, 0, 0, 1),     // left rotation
-                new Vector3f(0.2f, 2f, 0.2f),    // scale (thin and tall)
-                new AxisAngle4f(0, 0, 0, 1)      // right rotation
+                new Vector3f(0, offsetY, 0),    // translation with configurable Y offset
+                new AxisAngle4f(0, 0, 0, 1),    // left rotation
+                scale,                          // configurable scale
+                new AxisAngle4f(0, 0, 0, 1)     // right rotation
             ));
             display.addScoreboardTag(ROPE_DISPLAY_TAG);
         });
@@ -127,7 +132,7 @@ public class Display {
         SkullMeta meta = (SkullMeta) head.getItemMeta();
 
         PlayerProfile profile = Bukkit.createProfile(UUID.randomUUID());
-        profile.setProperty(new ProfileProperty("textures", plugin.getConfiguration().getHeadTexture()));
+        profile.setProperty(new ProfileProperty("textures", plugin.getConfiguration().getRopeBlockDisplayTexture()));
         meta.setPlayerProfile(profile);
 
         head.setItemMeta(meta);

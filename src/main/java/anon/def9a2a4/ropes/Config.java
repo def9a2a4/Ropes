@@ -1,7 +1,16 @@
 package anon.def9a2a4.ropes;
 
 import org.bukkit.Material;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.joml.Vector3f;
+
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class Config {
     private final RopesPlugin plugin;
@@ -10,19 +19,26 @@ public class Config {
     private int ropeCoilDefaultLength;
     private int ropeCoilMaxLength;
     private String headTexture;
+    private ItemDisplayConfig ropeCoilItemConfig;
 
     // Rope Block Settings
     private Material chainMaterial;
     private double climbSpeed;
+    private int interactionRadius;
+    private Set<Material> anchorFences;
+    private String ropeBlockDisplayTexture;
+    private DisplayScale displayScale;
+    private float displayOffsetY;
 
     // Rope Arrow Settings
     private Material fenceMaterial;
     private boolean ropeArrowGlint;
+    private ItemDisplayConfig ropeArrowItemConfig;
 
-    // Recipe Toggles
-    private boolean ropeCoilRecipeEnabled;
+    // Recipe Configs
+    private RecipeConfig ropeCoilRecipeConfig;
     private boolean ropeCoilCombineEnabled;
-    private boolean ropeArrowRecipeEnabled;
+    private RecipeConfig ropeArrowRecipeConfig;
 
     public Config(RopesPlugin plugin) {
         this.plugin = plugin;
@@ -40,11 +56,18 @@ public class Config {
         headTexture = config.getString("rope-coil.head-texture",
             "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOGY1MTM2MWE4MGM3MmQ2ODUwN2E0YzVkY2I3ZDY3MWNmMGZmZGMzNTc3YmNlOWU3OWVmOWFmOTMxNTM2YmE1MyJ9fX0=");
 
+        // Rope Coil Item Config
+        String coilName = config.getString("rope-coil.item.name", "<gold>Rope Coil");
+        List<String> coilLore = config.getStringList("rope-coil.item.lore");
+        if (coilLore.isEmpty()) {
+            coilLore = List.of("<gray><meters> meters of rope");
+        }
+        ropeCoilItemConfig = new ItemDisplayConfig(coilName, coilLore);
+
         // Rope Block Settings
         String chainMaterialName = config.getString("rope-block.chain-material", "WAXED_EXPOSED_COPPER_CHAIN");
         chainMaterial = Material.matchMaterial(chainMaterialName);
         if (chainMaterial == null) {
-            // Try waxed exposed copper chain first, fall back to regular chain
             chainMaterial = Material.matchMaterial("WAXED_EXPOSED_COPPER_CHAIN");
             if (chainMaterial == null) {
                 chainMaterial = Material.CHAIN;
@@ -52,9 +75,38 @@ public class Config {
             plugin.getLogger().warning("Invalid chain material: " + chainMaterialName + ", using " + chainMaterial.name());
         }
         climbSpeed = config.getDouble("rope-block.climb-speed", 0.2);
+        interactionRadius = config.getInt("rope-block.interaction-radius", 1);
+
+        // Anchor Fences
+        anchorFences = EnumSet.noneOf(Material.class);
+        List<String> fenceList = config.getStringList("rope-block.anchor-fences");
+        for (String fenceName : fenceList) {
+            Material mat = Material.matchMaterial(fenceName);
+            if (mat != null) {
+                anchorFences.add(mat);
+            } else {
+                plugin.getLogger().warning("Invalid anchor fence material: " + fenceName);
+            }
+        }
+
+        ropeBlockDisplayTexture = config.getString("rope-block.display-texture", headTexture);
+
+        // Display Scale
+        double scaleX = config.getDouble("rope-block.display-scale.x", 0.2);
+        double scaleY = config.getDouble("rope-block.display-scale.y", 2.0);
+        double scaleZ = config.getDouble("rope-block.display-scale.z", 0.2);
+        if (scaleX <= 0 || scaleY <= 0 || scaleZ <= 0) {
+            plugin.getLogger().warning("Invalid display scale values, using defaults");
+            displayScale = new DisplayScale(0.2f, 2.0f, 0.2f);
+        } else {
+            displayScale = new DisplayScale((float) scaleX, (float) scaleY, (float) scaleZ);
+        }
+
+        // Display Offset Y
+        displayOffsetY = (float) config.getDouble("rope-block.display-offset-y", 0.0);
 
         // Rope Arrow Settings
-        String fenceMaterialName = config.getString("rope-arrow.fence-material", "OAK_FENCE");
+        String fenceMaterialName = config.getString("rope-arrow.place-material", "OAK_FENCE");
         fenceMaterial = Material.matchMaterial(fenceMaterialName);
         if (fenceMaterial == null) {
             plugin.getLogger().warning("Invalid fence material: " + fenceMaterialName + ", using OAK_FENCE");
@@ -62,11 +114,85 @@ public class Config {
         }
         ropeArrowGlint = config.getBoolean("rope-arrow.glint", true);
 
-        // Recipe Toggles
-        ropeCoilRecipeEnabled = config.getBoolean("recipes.rope-coil-enabled", true);
-        ropeCoilCombineEnabled = config.getBoolean("recipes.rope-coil-combine-enabled", true);
-        ropeArrowRecipeEnabled = config.getBoolean("recipes.rope-arrow-enabled", true);
+        // Rope Arrow Item Config
+        String arrowName = config.getString("rope-arrow.item.name", "<gold>Rope Arrow");
+        List<String> arrowLore = config.getStringList("rope-arrow.item.lore");
+        if (arrowLore.isEmpty()) {
+            arrowLore = List.of("<gray>Shoots a rope where it lands", "<dark_gray><meters> meters of rope");
+        }
+        ropeArrowItemConfig = new ItemDisplayConfig(arrowName, arrowLore);
+
+        // Recipe Configs
+        ropeCoilRecipeConfig = loadRecipeConfig(config, "recipes.rope-coil", true);
+        ropeCoilCombineEnabled = config.getBoolean("recipes.rope-coil-combine.enabled", true);
+        ropeArrowRecipeConfig = loadRecipeConfig(config, "recipes.rope-arrow", true);
     }
+
+    private RecipeConfig loadRecipeConfig(FileConfiguration config, String path, boolean defaultEnabled) {
+        boolean enabled = config.getBoolean(path + ".enabled", defaultEnabled);
+        if (!enabled) {
+            return new RecipeConfig(false, RecipeType.SHAPELESS, null, null, null, false);
+        }
+
+        String typeStr = config.getString(path + ".type", "shapeless");
+        RecipeType type = typeStr.equalsIgnoreCase("shaped") ? RecipeType.SHAPED : RecipeType.SHAPELESS;
+
+        List<String> pattern = null;
+        Map<Character, Material> shapedIngredients = null;
+        List<IngredientConfig> shapelessIngredients = null;
+        boolean hasRopeCoilIngredient = false;
+
+        if (type == RecipeType.SHAPED) {
+            pattern = config.getStringList(path + ".pattern");
+            if (pattern.isEmpty()) {
+                plugin.getLogger().warning("No pattern defined for shaped recipe at " + path);
+            }
+
+            shapedIngredients = new HashMap<>();
+            ConfigurationSection ingredientSection = config.getConfigurationSection(path + ".ingredients");
+            if (ingredientSection != null) {
+                for (String key : ingredientSection.getKeys(false)) {
+                    if (key.length() == 1) {
+                        String matName = ingredientSection.getString(key);
+                        if ("ROPE_COIL".equalsIgnoreCase(matName)) {
+                            hasRopeCoilIngredient = true;
+                            shapedIngredients.put(key.charAt(0), null);
+                        } else {
+                            Material mat = Material.matchMaterial(matName);
+                            if (mat != null) {
+                                shapedIngredients.put(key.charAt(0), mat);
+                            } else {
+                                plugin.getLogger().warning("Invalid material '" + matName + "' for ingredient '" + key + "' at " + path);
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            shapelessIngredients = new ArrayList<>();
+            List<Map<?, ?>> ingredientList = config.getMapList(path + ".ingredients");
+            for (Map<?, ?> ing : ingredientList) {
+                String matName = String.valueOf(ing.get("material"));
+                int amount = ing.containsKey("amount") ? ((Number) ing.get("amount")).intValue() : 1;
+
+                if ("ROPE_COIL".equalsIgnoreCase(matName)) {
+                    hasRopeCoilIngredient = true;
+                    shapelessIngredients.add(new IngredientConfig(null, amount));
+                } else {
+                    Material mat = Material.matchMaterial(matName);
+                    if (mat != null) {
+                        shapelessIngredients.add(new IngredientConfig(mat, amount));
+                    } else {
+                        plugin.getLogger().warning("Invalid material '" + matName + "' at " + path);
+                    }
+                }
+            }
+        }
+
+        return new RecipeConfig(enabled, type, pattern, shapedIngredients, shapelessIngredients, hasRopeCoilIngredient);
+    }
+
+    // Getters
 
     public int getRopeCoilDefaultLength() {
         return ropeCoilDefaultLength;
@@ -80,12 +206,40 @@ public class Config {
         return headTexture;
     }
 
+    public ItemDisplayConfig getRopeCoilItemConfig() {
+        return ropeCoilItemConfig;
+    }
+
     public Material getChainMaterial() {
         return chainMaterial;
     }
 
     public double getClimbSpeed() {
         return climbSpeed;
+    }
+
+    public int getInteractionRadius() {
+        return interactionRadius;
+    }
+
+    public Set<Material> getAnchorFences() {
+        return anchorFences;
+    }
+
+    public boolean isAnchorFence(Material material) {
+        return anchorFences.contains(material);
+    }
+
+    public String getRopeBlockDisplayTexture() {
+        return ropeBlockDisplayTexture;
+    }
+
+    public DisplayScale getDisplayScale() {
+        return displayScale;
+    }
+
+    public float getDisplayOffsetY() {
+        return displayOffsetY;
     }
 
     public Material getFenceMaterial() {
@@ -96,15 +250,44 @@ public class Config {
         return ropeArrowGlint;
     }
 
-    public boolean isRopeCoilRecipeEnabled() {
-        return ropeCoilRecipeEnabled;
+    public ItemDisplayConfig getRopeArrowItemConfig() {
+        return ropeArrowItemConfig;
+    }
+
+    public RecipeConfig getRopeCoilRecipeConfig() {
+        return ropeCoilRecipeConfig;
     }
 
     public boolean isRopeCoilCombineEnabled() {
         return ropeCoilCombineEnabled;
     }
 
-    public boolean isRopeArrowRecipeEnabled() {
-        return ropeArrowRecipeEnabled;
+    public RecipeConfig getRopeArrowRecipeConfig() {
+        return ropeArrowRecipeConfig;
     }
+
+    // Inner Records and Enums
+
+    public record DisplayScale(float x, float y, float z) {
+        public Vector3f toVector3f() {
+            return new Vector3f(x, y, z);
+        }
+    }
+
+    public record ItemDisplayConfig(String nameTemplate, List<String> loreTemplates) {}
+
+    public record RecipeConfig(
+        boolean enabled,
+        RecipeType type,
+        List<String> pattern,
+        Map<Character, Material> shapedIngredients,
+        List<IngredientConfig> shapelessIngredients,
+        boolean hasRopeCoilIngredient
+    ) {}
+
+    public enum RecipeType {
+        SHAPED, SHAPELESS
+    }
+
+    public record IngredientConfig(Material material, int amount) {}
 }

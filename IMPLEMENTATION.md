@@ -3,118 +3,64 @@
 ## Overview
 A Paper 1.21 plugin implementing rope mechanics: Rope Coil items, climbable Rope Blocks, and Rope Arrows.
 
+## Current Status
+
+| File | Status |
+|------|--------|
+| `RopesPlugin.java` | ✅ Complete |
+| `Config.java` | ✅ Complete |
+| `Items.java` | ✅ Complete |
+| `Display.java` | ✅ Complete |
+| `Ropes.java` | ✅ Complete |
+| `config.yml` | ✅ Complete |
+| `Listeners.java` | ❌ **Not implemented** |
+
+**Minor TODO:** bStats plugin ID is placeholder `12345` in RopesPlugin.java
+
+---
+
+## Remaining Work: Listeners.java
+
+Create `src/main/java/anon/def9a2a4/ropes/Listeners.java` implementing:
+
+### 1. Crafting Events
+- **PrepareItemCraftEvent**: Set correct output length for rope coil combining and rope arrow crafting
+
+### 2. Block Interactions
+- **PlayerInteractEvent (LEFT_CLICK_BLOCK on rope)**: Break rope, drop coil(s)
+- **PlayerInteractEvent (RIGHT_CLICK_BLOCK on rope with coil)**: Extend rope
+- **PlayerInteractEvent (RIGHT_CLICK_BLOCK on solid block with coil)**: Place new rope below
+- **BlockBreakEvent**: If block above rope anchor breaks → break entire rope
+- **BlockExplodeEvent/EntityExplodeEvent**: Handle explosion damage to ropes
+- **BlockPistonExtendEvent/BlockPistonRetractEvent**: Break rope if piston affects it
+
+### 3. Climbing Mechanics
+- **PlayerMoveEvent**: Detect players adjacent to rope blocks
+  - If jumping (velocity Y > 0): Apply upward velocity (climb speed from config)
+  - If sneaking: Apply downward velocity
+  - Otherwise: Cancel vertical velocity to hold position
+
+### 4. Arrow Events
+- **EntityShootBowEvent**: If shooting rope arrow, tag the Arrow entity with rope length PDC
+- **ProjectileHitEvent (block)**:
+  - If block above exists: place rope of stored length
+  - If no block above: place fence block + (length-1) rope hanging down
+  - Remove arrow entity
+- **ProjectileHitEvent (entity)**: Drop rope arrow as item, remove arrow entity
+
+---
+
 ## Architecture
 
 ```
 src/main/java/anon/def9a2a4/ropes/
-├── RopesPlugin.java    # Main plugin class
-├── Config.java         # Configuration handler
-├── Items.java          # Rope coil & rope arrow item creation
-├── Ropes.java          # Core rope placement/breaking logic + RopeData record
-├── Display.java        # Display entity creation/removal
-└── Listeners.java      # All event listeners (crafting, climbing, arrows, blocks)
+├── RopesPlugin.java    ✅ Main plugin class
+├── Config.java         ✅ Configuration handler
+├── Items.java          ✅ Rope coil & rope arrow item creation
+├── Ropes.java          ✅ Core rope placement/breaking logic
+├── Display.java        ✅ Display entity creation/removal
+└── Listeners.java      ❌ All event listeners (TO BE CREATED)
 ```
-
----
-
-## Parallel Implementation Tracks
-
-### Track 1: Core Infrastructure & Rope Coil Item
-**No dependencies on other tracks**
-
-1. **RopesPlugin.java** - Main plugin class
-   - onEnable/onDisable lifecycle
-   - Register Listeners
-   - Load configuration
-   - Register crafting recipes
-
-2. **Config.java** - Configuration
-   - Head texture URL/value
-   - Climb speed (blocks per tick)
-   - Max rope length per coil (default 16)
-   - Default rope length (default 2)
-   - Crafting recipe toggles
-   - Material overrides (chain type, fence type)
-
-3. **config.yml** - Default configuration file
-
-4. **Items.java** - All custom items
-   - `createRopeCoil(int meters)` - Create player head with texture, lore, PDC data
-   - `getRopeLength(ItemStack)` - Extract length from PDC
-   - `isRopeCoil(ItemStack)` - Validation check
-   - `combineCoils(ItemStack, ItemStack)` - Merge lengths (cap at max)
-   - `createRopeArrow(int ropeLength)` - Arrow with glint, lore, PDC data
-   - `isRopeArrow(ItemStack)` - Validation
-   - `getArrowRopeLength(ItemStack)` - Extract length from PDC
-
----
-
-### Track 2: Rope Block System (Core Mechanics)
-**Depends on: Track 1 (Items, Config)**
-
-1. **Display.java** - Display entity management
-   - `spawnRopeDisplay(Location)` - Create stretched player head display
-   - `removeRopeDisplay(Location)` - Remove display entity at location
-   - `findRopeDisplaysInColumn(Location)` - Find all rope displays in a vertical column
-   - `isRopeDisplay(Entity)` - Check entity tags
-   - Tag format: `ropes_display`
-
-2. **Ropes.java** - Core rope logic + data
-   - `record RopeData(Location anchor, int length)` - Rope metadata
-   - `placeRope(Location anchor, int length)` - Place chain blocks + display entities downward
-   - `breakRope(Location anyRopeBlock)` - Remove entire rope, return total length
-   - `extendRope(Location bottomBlock, int additionalLength)` - Add length to existing rope
-   - `findRopeAnchor(Location ropeBlock)` - Trace up to find anchor
-   - `getRopeLength(Location anchor)` - Count rope blocks from anchor
-   - `isRopeBlock(Location)` - Check for chain + display entity
-   - Handle air gaps, obstacles when placing
-
----
-
-### Track 3: Listeners
-**Depends on: Track 1 (Items, Config), Track 2 (Ropes, Display)**
-
-1. **Listeners.java** - All event handlers in one class
-
-   **Crafting:**
-   - PrepareItemCraftEvent: Set correct output for rope coil combining and rope arrow crafting
-
-   **Block Interactions:**
-   - PlayerInteractEvent (LEFT_CLICK_BLOCK): Break rope, drop coil(s)
-   - PlayerInteractEvent (RIGHT_CLICK_BLOCK on rope): Extend rope with held coil
-   - PlayerInteractEvent (RIGHT_CLICK_BLOCK with coil): Place new rope
-   - BlockBreakEvent: Detect if block above rope anchor breaks → break entire rope
-   - BlockExplodeEvent/EntityExplodeEvent: Handle explosion damage to ropes
-   - BlockPistonExtendEvent/BlockPistonRetractEvent: Handle piston interactions
-
-   **Climbing:**
-   - PlayerMoveEvent: Detect players near rope blocks
-   - Apply upward velocity on jump, downward on sneak
-   - Cancel vertical velocity otherwise
-
-   **Arrow:**
-   - EntityShootBowEvent: Tag arrow entity with rope data when shot
-   - ProjectileHitEvent (block): Place rope or fence+rope, remove arrow
-   - ProjectileHitEvent (entity): Drop arrow as item, remove entity
-
----
-
-## Implementation Order
-
-```
-Parallel Start:
-├── Agent A: Track 1 (Config, Items, Plugin) ─────────────────►
-├── Agent B: Track 2 (Display, Ropes) [waits for Track 1]─────►
-└── Agent C: Track 3 (Listeners) [waits for Track 1 & 2]──────►
-```
-
-**Recommended parallel assignment:**
-
-| Agent | Track | Start Condition |
-|-------|-------|-----------------|
-| A | Track 1: Core Infrastructure | Immediate |
-| B | Track 2: Rope Block System | After Config + Items stubs exist |
-| C | Track 3: Listeners | After Ropes.isRopeBlock exists |
 
 ---
 
@@ -200,7 +146,7 @@ rope-block:
 
 # Rope Arrow Settings
 rope-arrow:
-  fence-material: OAK_FENCE
+  place-material: OAK_FENCE
   glint: true
 
 # Crafting Recipes
@@ -237,12 +183,12 @@ recipes:
 
 ## Files to Create
 
-| File | Track |
-|------|-------|
-| `src/main/java/anon/def9a2a4/ropes/RopesPlugin.java` | 1 |
-| `src/main/java/anon/def9a2a4/ropes/Config.java` | 1 |
-| `src/main/java/anon/def9a2a4/ropes/Items.java` | 1 |
-| `src/main/java/anon/def9a2a4/ropes/Display.java` | 2 |
-| `src/main/java/anon/def9a2a4/ropes/Ropes.java` | 2 |
-| `src/main/java/anon/def9a2a4/ropes/Listeners.java` | 3 |
-| `src/main/resources/config.yml` | 1 |
+| File | Status |
+|------|--------|
+| `src/main/java/anon/def9a2a4/ropes/RopesPlugin.java` | ✅ Done |
+| `src/main/java/anon/def9a2a4/ropes/Config.java` | ✅ Done |
+| `src/main/java/anon/def9a2a4/ropes/Items.java` | ✅ Done |
+| `src/main/java/anon/def9a2a4/ropes/Display.java` | ✅ Done |
+| `src/main/java/anon/def9a2a4/ropes/Ropes.java` | ✅ Done |
+| `src/main/java/anon/def9a2a4/ropes/Listeners.java` | ❌ TODO |
+| `src/main/resources/config.yml` | ✅ Done |

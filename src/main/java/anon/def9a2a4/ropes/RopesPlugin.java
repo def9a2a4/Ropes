@@ -8,6 +8,8 @@ import org.bukkit.inventory.ShapelessRecipe;
 import org.bukkit.inventory.RecipeChoice;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.Map;
+
 public class RopesPlugin extends JavaPlugin {
     private static RopesPlugin instance;
     private Config configuration;
@@ -29,6 +31,14 @@ public class RopesPlugin extends JavaPlugin {
         display = new Display(this);
         ropes = new Ropes(this, display);
 
+        // Register event listeners
+        getServer().getPluginManager().registerEvents(new Listeners(this), this);
+
+        // Register commands
+        Commands commands = new Commands(this);
+        getCommand("ropes").setExecutor(commands);
+        getCommand("ropes").setTabCompleter(commands);
+
         // Register crafting recipes
         registerRecipes();
 
@@ -44,49 +54,102 @@ public class RopesPlugin extends JavaPlugin {
     }
 
     private void registerRecipes() {
-        // Rope Coil Recipe: 6 string -> rope coil (2m)
-        if (configuration.isRopeCoilRecipeEnabled()) {
-            ShapelessRecipe ropeCoilRecipe = new ShapelessRecipe(
-                new NamespacedKey(this, "rope_coil"),
-                items.createRopeCoil(configuration.getRopeCoilDefaultLength())
-            );
-            ropeCoilRecipe.addIngredient(6, Material.STRING);
-            getServer().addRecipe(ropeCoilRecipe);
+        // Rope Coil Recipe
+        Config.RecipeConfig coilConfig = configuration.getRopeCoilRecipeConfig();
+        if (coilConfig.enabled()) {
+            registerRopeCoilRecipe(coilConfig);
         }
 
         // Rope Coil Combine Recipe: 2 rope coils -> combined coil
-        // Note: Actual combining logic with correct length is handled in PrepareItemCraftEvent (Listeners)
+        // Note: Uses MaterialChoice to allow any rope coil length. Actual combining logic
+        // with correct length is handled in PrepareItemCraftEvent (Listeners)
         if (configuration.isRopeCoilCombineEnabled()) {
             ShapelessRecipe combineRecipe = new ShapelessRecipe(
                 new NamespacedKey(this, "rope_coil_combine"),
                 items.createRopeCoil(configuration.getRopeCoilDefaultLength() * 2)
             );
-            combineRecipe.addIngredient(new RecipeChoice.ExactChoice(
-                items.createRopeCoil(configuration.getRopeCoilDefaultLength())
-            ));
-            combineRecipe.addIngredient(new RecipeChoice.ExactChoice(
-                items.createRopeCoil(configuration.getRopeCoilDefaultLength())
-            ));
+            // Use MaterialChoice so any player head (rope coil) works, validation in Listeners
+            combineRecipe.addIngredient(new RecipeChoice.MaterialChoice(Material.PLAYER_HEAD));
+            combineRecipe.addIngredient(new RecipeChoice.MaterialChoice(Material.PLAYER_HEAD));
             getServer().addRecipe(combineRecipe);
         }
 
-        // Rope Arrow Recipe:
-        // - A -
-        // - S -
-        // S R S
-        // Where A=arrow, S=stick, R=rope coil
-        if (configuration.isRopeArrowRecipeEnabled()) {
-            ShapedRecipe ropeArrowRecipe = new ShapedRecipe(
-                new NamespacedKey(this, "rope_arrow"),
-                items.createRopeArrow(configuration.getRopeCoilDefaultLength())
-            );
-            ropeArrowRecipe.shape(" A ", " S ", "SRS");
-            ropeArrowRecipe.setIngredient('A', Material.ARROW);
-            ropeArrowRecipe.setIngredient('S', Material.STICK);
-            ropeArrowRecipe.setIngredient('R', new RecipeChoice.ExactChoice(
-                items.createRopeCoil(configuration.getRopeCoilDefaultLength())
-            ));
-            getServer().addRecipe(ropeArrowRecipe);
+        // Rope Arrow Recipe
+        Config.RecipeConfig arrowConfig = configuration.getRopeArrowRecipeConfig();
+        if (arrowConfig.enabled()) {
+            registerRopeArrowRecipe(arrowConfig);
+        }
+    }
+
+    private void registerRopeCoilRecipe(Config.RecipeConfig config) {
+        NamespacedKey key = new NamespacedKey(this, "rope_coil");
+        var result = items.createRopeCoil(configuration.getRopeCoilDefaultLength());
+
+        if (config.type() == Config.RecipeType.SHAPED) {
+            ShapedRecipe recipe = new ShapedRecipe(key, result);
+            recipe.shape(config.pattern().toArray(new String[0]));
+
+            for (Map.Entry<Character, Material> entry : config.shapedIngredients().entrySet()) {
+                if (entry.getValue() != null) {
+                    recipe.setIngredient(entry.getKey(), entry.getValue());
+                }
+            }
+            getServer().addRecipe(recipe);
+        } else {
+            ShapelessRecipe recipe = new ShapelessRecipe(key, result);
+            for (Config.IngredientConfig ing : config.shapelessIngredients()) {
+                if (ing.material() != null) {
+                    recipe.addIngredient(ing.amount(), ing.material());
+                }
+            }
+            getServer().addRecipe(recipe);
+        }
+    }
+
+    private void registerRopeArrowRecipe(Config.RecipeConfig config) {
+        NamespacedKey key = new NamespacedKey(this, "rope_arrow");
+        var result = items.createRopeArrow(configuration.getRopeCoilDefaultLength());
+
+        getLogger().info("Registering rope arrow recipe...");
+        getLogger().info("  Recipe type: " + config.type());
+        getLogger().info("  Pattern: " + config.pattern());
+        getLogger().info("  Shaped ingredients: " + config.shapedIngredients());
+
+        if (config.type() == Config.RecipeType.SHAPED) {
+            ShapedRecipe recipe = new ShapedRecipe(key, result);
+            recipe.shape(config.pattern().toArray(new String[0]));
+
+            if (config.shapedIngredients() == null) {
+                getLogger().warning("  shapedIngredients is NULL!");
+            } else if (config.shapedIngredients().isEmpty()) {
+                getLogger().warning("  shapedIngredients is EMPTY!");
+            }
+
+            for (Map.Entry<Character, Material> entry : config.shapedIngredients().entrySet()) {
+                getLogger().info("  Setting ingredient: " + entry.getKey() + " -> " + entry.getValue());
+                if (entry.getValue() == null) {
+                    // Rope coil ingredient - use MaterialChoice so any rope coil works
+                    // Actual validation is done in PrepareItemCraftEvent listener
+                    recipe.setIngredient(entry.getKey(), new RecipeChoice.MaterialChoice(Material.PLAYER_HEAD));
+                } else {
+                    recipe.setIngredient(entry.getKey(), entry.getValue());
+                }
+            }
+            getServer().addRecipe(recipe);
+        } else {
+            ShapelessRecipe recipe = new ShapelessRecipe(key, result);
+            for (Config.IngredientConfig ing : config.shapelessIngredients()) {
+                if (ing.material() == null) {
+                    // Rope coil ingredient - use MaterialChoice so any rope coil works
+                    // Actual validation is done in PrepareItemCraftEvent listener
+                    for (int i = 0; i < ing.amount(); i++) {
+                        recipe.addIngredient(new RecipeChoice.MaterialChoice(Material.PLAYER_HEAD));
+                    }
+                } else {
+                    recipe.addIngredient(ing.amount(), ing.material());
+                }
+            }
+            getServer().addRecipe(recipe);
         }
     }
 

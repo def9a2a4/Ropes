@@ -4,3 +4,19 @@ version: ${version}
 api-version: 1.21
 author: def9a2a4
 description: ropes you can place, shoot out of a bow, and climb.
+
+commands:
+  ropes:
+    description: Ropes plugin commands
+    usage: /<command> <reload|info|delete_all|give|help>
+
+permissions:
+  ropes.use:
+    description: Allows using basic ropes commands
+    default: true
+  ropes.admin:
+    description: Allows reload and delete_all commands
+    default: op
+  ropes.give:
+    description: Allows giving rope items
+    default: op
