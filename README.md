@@ -9,10 +9,9 @@ A Minecraft Paper plugin that lets you place, shoot, and climb ropes. Get it on 
 - **Climbing** - Jump to climb ropes, sneak to descend
 
 
-| Rope Coil | Rope Arrow |
-|:-:|:-:|
+|                Placing a Rope Coil                |                 Shooting a Rope Arrow                 |
+| :-----------------------------------------------: | :--------------------------------------------------: |
 | ![Placing a rope coil](docs/assets/rope_coil.gif) | ![Shooting a rope arrow](docs/assets/rope_arrow.gif) |
-| *Placing a rope coil* | *Shooting a rope arrow* |
 
 ## Rope Coils
 
@@ -34,11 +33,11 @@ Left-click a rope to break it and receive rope coils back. Breaking the anchor b
 
 ## Crafting
 
-| Recipe | Description |
-|:-:|:--|
-| ![Rope Coil recipe](docs/assets/craft-rope-coil.png) | *Craft a Rope Coil with  6 string, unshaped. Resulting rope coil length is configurable.* |
-| ![Rope Arrow recipe](docs/assets/craft-rope-arrow.png) | *Craft a Rope Arrow by combining a Rope Coil with an arrow and sticks.* |
-| ![Combining Rope Coils](docs/assets/craft-combine.png) | *Combine two Rope Coils to add their lengths together (up to 16 blocks, configurable).* |
+|                         Recipe                         | Description                                                                               |
+| :----------------------------------------------------: | :---------------------------------------------------------------------------------------- |
+|  ![Rope Coil recipe](docs/assets/craft-rope-coil.png)  | *Craft a Rope Coil with  6 string, unshaped. Resulting rope coil length is configurable.* |
+| ![Rope Arrow recipe](docs/assets/craft-rope-arrow.png) | *Craft a Rope Arrow by combining a Rope Coil with an arrow and sticks.*                   |
+| ![Combining Rope Coils](docs/assets/craft-combine.png) | *Combine two Rope Coils to add their lengths together (up to 16 blocks, configurable).*   |
 
 
 # Installation
