@@ -3,6 +3,7 @@ package anon.def9a2a4.ropes;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -19,7 +20,7 @@ import java.util.Map;
 
 public class Commands implements CommandExecutor, TabCompleter {
     private final RopesPlugin plugin;
-    private static final List<String> SUBCOMMANDS = List.of("reload", "info", "delete_all", "give", "help");
+    private static final List<String> SUBCOMMANDS = List.of("reload", "info", "delete_all", "give", "recipes", "help");
     private static final List<String> GIVE_TYPES = List.of("coil", "arrow");
 
     public Commands(RopesPlugin plugin) {
@@ -39,6 +40,7 @@ public class Commands implements CommandExecutor, TabCompleter {
             case "info" -> handleInfo(sender);
             case "delete_all" -> handleDeleteAll(sender, args);
             case "give" -> handleGive(sender, args);
+            case "recipes" -> handleRecipes(sender, args);
             case "help" -> handleHelp(sender);
             default -> {
                 sender.sendMessage(Component.text("Unknown subcommand. Use /ropes help for a list of commands.", NamedTextColor.RED));
@@ -193,6 +195,42 @@ public class Commands implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    private boolean handleRecipes(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("ropes.recipes")) {
+            sender.sendMessage(Component.text("You don't have permission to use this command.", NamedTextColor.RED));
+            return true;
+        }
+
+        Player target;
+        if (args.length >= 2) {
+            target = Bukkit.getPlayer(args[1]);
+            if (target == null) {
+                sender.sendMessage(Component.text("Player not found: " + args[1], NamedTextColor.RED));
+                return true;
+            }
+        } else if (sender instanceof Player player) {
+            target = player;
+        } else {
+            sender.sendMessage(Component.text("Usage: /ropes recipes <player>", NamedTextColor.RED));
+            return true;
+        }
+
+        unlockRopesRecipes(target);
+
+        if (target.equals(sender)) {
+            sender.sendMessage(Component.text("Unlocked all Ropes recipes.", NamedTextColor.GREEN));
+        } else {
+            sender.sendMessage(Component.text("Unlocked all Ropes recipes for " + target.getName() + ".", NamedTextColor.GREEN));
+        }
+        return true;
+    }
+
+    private void unlockRopesRecipes(Player player) {
+        player.discoverRecipe(new NamespacedKey(plugin, "rope_coil"));
+        player.discoverRecipe(new NamespacedKey(plugin, "rope_coil_combine"));
+        player.discoverRecipe(new NamespacedKey(plugin, "rope_arrow"));
+    }
+
     private boolean handleHelp(CommandSender sender) {
         sender.sendMessage(Component.text("=== Ropes Commands ===", NamedTextColor.GOLD));
         sender.sendMessage(Component.text("/ropes help", NamedTextColor.YELLOW)
@@ -201,9 +239,11 @@ public class Commands implements CommandExecutor, TabCompleter {
             .append(Component.text(" - Show info about all placed ropes", NamedTextColor.GRAY)));
         sender.sendMessage(Component.text("/ropes give <coil|arrow> [length]", NamedTextColor.YELLOW)
             .append(Component.text(" - Give yourself a rope item", NamedTextColor.GRAY)));
+        sender.sendMessage(Component.text("/ropes recipes [player]", NamedTextColor.YELLOW)
+            .append(Component.text(" - Unlock rope recipes", NamedTextColor.GRAY)));
         sender.sendMessage(Component.text("/ropes reload", NamedTextColor.YELLOW)
             .append(Component.text(" - Reload the configuration", NamedTextColor.GRAY)));
-        sender.sendMessage(Component.text("/ropes delete_all confirm", NamedTextColor.YELLOW)
+        sender.sendMessage(Component.text("/ropes delete_all", NamedTextColor.YELLOW)
             .append(Component.text(" - Delete all placed ropes", NamedTextColor.GRAY)));
         return true;
     }
@@ -232,6 +272,12 @@ public class Commands implements CommandExecutor, TabCompleter {
             } else if (subcommand.equals("delete_all")) {
                 if ("confirm".startsWith(partial)) {
                     completions.add("confirm");
+                }
+            } else if (subcommand.equals("recipes")) {
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    if (player.getName().toLowerCase().startsWith(partial)) {
+                        completions.add(player.getName());
+                    }
                 }
             }
         } else if (args.length == 3) {

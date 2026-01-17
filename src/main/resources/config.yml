@@ -2,21 +2,28 @@
 
 # Rope Coil Settings
 rope-coil:
-  default-length: 2      # Default length in meters when crafting
-  max-length: 16         # Maximum length per coil
+  # Default length in meters when crafting
+  default-length: 2
+  # Maximum length per coil
+  max-length: 16
   head-texture: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvN2M3YzRlY2ZlNDVmODViOGE2ODcyNjQ2MTZmMTVhMjBjOWNjMjRkMWYyNzlhNjVlMGU0MGRjNjM3NWNlYjllOSJ9fX0K"
   item:
     name: "<gold>Rope Coil (<meters>m)"
     lore:
       - "<gray><meters> meters of rope"
-      - "<gray>Right-click to place, combine with another coil to add length"
+      - "<gray>Right-click to place"
+      - "<gray>Craft with another coil to add length"
 
 # Rope Block Settings
 rope-block:
-  chain-material: WAXED_EXPOSED_COPPER_CHAIN  # Material used for rope blocks
-  climb-speed: 0.2       # Blocks per tick when climbing
-  interaction-radius: 0  # Manhattan distance from rope for climbing to work
-  anchor-fences:         # Fence types that can anchor ropes (when air or rope below)
+  # Material used for rope blocks
+  chain-material: WAXED_EXPOSED_COPPER_CHAIN
+  # Blocks per tick when climbing
+  climb-speed: 0.2
+  # Manhattan distance from rope for climbing to work
+  interaction-radius: 0
+  # Fence types that can anchor ropes (when air or rope below)
+  anchor-fences:
     - OAK_FENCE
     - SPRUCE_FENCE
     - BIRCH_FENCE
@@ -34,12 +41,24 @@ rope-block:
     x: 0.2
     y: 2.0
     z: 0.2
-  display-offset-y: 0.5  # Vertical offset for display entity positioning
+  # Vertical offset for display entity positioning
+  display-offset-y: 0.5
+  animation:
+    # Enable/disable the unfurling animation
+    enabled: true
+    # Ticks between each block placement (1 tick = 50ms)
+    ticks-per-block: 2
 
 # Rope Arrow Settings
 rope-arrow:
-  place-material: OAK_FENCE  # Fence placed when arrow lands without ceiling
-  glint: true            # Whether rope arrows have enchantment glint
+  # Fence placed when arrow lands without ceiling
+  place-material: OAK_FENCE
+  # Radius in blocks to search for existing ropes to extend
+  extend-radius: 1
+  # Whether rope arrows have enchantment glint
+  glint: true
+  # Block material for impact particles
+  impact-particle-material: OAK_PLANKS
   item:
     name: "<gold>Rope Arrow (<meters>m)"
     lore:
@@ -69,4 +88,10 @@ recipes:
     ingredients:
       A: ARROW
       S: STICK
-      R: ROPE_COIL  # Special marker for rope coil ingredient
+      # Special marker for rope coil ingredient
+      R: ROPE_COIL
+
+  # Advancement that unlocks all rope recipes when completed
+  # Set to empty string to disable automatic unlocking
+  # Default: "minecraft:adventure/ol_betsy" (Ol' Betsy - Shoot a Crossbow)
+  unlock-on-advancement: "minecraft:adventure/ol_betsy"

@@ -9,6 +9,7 @@ import org.bukkit.inventory.RecipeChoice;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Map;
+import java.util.UUID;
 
 public class RopesPlugin extends JavaPlugin {
     private static RopesPlugin instance;
@@ -16,6 +17,7 @@ public class RopesPlugin extends JavaPlugin {
     private Items items;
     private Display display;
     private Ropes ropes;
+    private JumpInputListener jumpInputListener;
 
     @Override
     public void onEnable() {
@@ -34,6 +36,16 @@ public class RopesPlugin extends JavaPlugin {
         // Register event listeners
         getServer().getPluginManager().registerEvents(new Listeners(this), this);
 
+        // Register ProtocolLib packet listener for jump detection
+        if (getServer().getPluginManager().getPlugin("ProtocolLib") != null) {
+            jumpInputListener = new JumpInputListener(this);
+            jumpInputListener.register();
+            getLogger().info("ProtocolLib found - rope climbing enabled!");
+        } else {
+            getLogger().warning("ProtocolLib not found! Rope climbing may not work great.");
+            getLogger().warning("Download ProtocolLib at: https://www.spigotmc.org/resources/protocollib.1997/");
+        }
+
         // Register commands
         Commands commands = new Commands(this);
         getCommand("ropes").setExecutor(commands);
@@ -50,7 +62,18 @@ public class RopesPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (jumpInputListener != null) {
+            jumpInputListener.unregister();
+        }
         getLogger().info("Ropes plugin disabled!");
+    }
+
+    public boolean isPlayerJumping(UUID playerId) {
+        return jumpInputListener != null && jumpInputListener.isJumping(playerId);
+    }
+
+    public boolean hasProtocolLib() {
+        return jumpInputListener != null;
     }
 
     private void registerRecipes() {
@@ -110,23 +133,11 @@ public class RopesPlugin extends JavaPlugin {
         NamespacedKey key = new NamespacedKey(this, "rope_arrow");
         var result = items.createRopeArrow(configuration.getRopeCoilDefaultLength());
 
-        getLogger().info("Registering rope arrow recipe...");
-        getLogger().info("  Recipe type: " + config.type());
-        getLogger().info("  Pattern: " + config.pattern());
-        getLogger().info("  Shaped ingredients: " + config.shapedIngredients());
-
         if (config.type() == Config.RecipeType.SHAPED) {
             ShapedRecipe recipe = new ShapedRecipe(key, result);
             recipe.shape(config.pattern().toArray(new String[0]));
 
-            if (config.shapedIngredients() == null) {
-                getLogger().warning("  shapedIngredients is NULL!");
-            } else if (config.shapedIngredients().isEmpty()) {
-                getLogger().warning("  shapedIngredients is EMPTY!");
-            }
-
             for (Map.Entry<Character, Material> entry : config.shapedIngredients().entrySet()) {
-                getLogger().info("  Setting ingredient: " + entry.getKey() + " -> " + entry.getValue());
                 if (entry.getValue() == null) {
                     // Rope coil ingredient - use MaterialChoice so any rope coil works
                     // Actual validation is done in PrepareItemCraftEvent listener

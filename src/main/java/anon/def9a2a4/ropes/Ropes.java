@@ -5,6 +5,9 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scheduler.BukkitRunnable;
+
+import java.util.function.Consumer;
 
 /**
  * Core rope placement, breaking, and detection logic.
@@ -61,6 +64,68 @@ public class Ropes {
     }
 
     /**
+     * Places a rope with animation, one block at a time from top to bottom.
+     *
+     * @param anchor The location to start placing rope from (will be the topmost rope block)
+     * @param length The desired length in meters/blocks
+     * @param onComplete Callback invoked when placement finishes, receives the actual number of blocks placed
+     */
+    public void placeRopeAnimated(Location anchor, int length, Consumer<Integer> onComplete) {
+        World world = anchor.getWorld();
+        if (world == null) {
+            if (onComplete != null) onComplete.accept(0);
+            return;
+        }
+
+        Material chainMaterial = plugin.getConfiguration().getChainMaterial();
+        int ticksPerBlock = plugin.getConfiguration().getAnimationTicksPerBlock();
+
+        new BukkitRunnable() {
+            int currentIndex = 0;
+            int placed = 0;
+
+            @Override
+            public void run() {
+                if (currentIndex >= length) {
+                    cancel();
+                    if (onComplete != null) onComplete.accept(placed);
+                    return;
+                }
+
+                Location loc = anchor.clone().subtract(0, currentIndex, 0);
+                Block block = loc.getBlock();
+
+                // Check world boundaries
+                if (loc.getY() < world.getMinHeight()) {
+                    cancel();
+                    if (onComplete != null) onComplete.accept(placed);
+                    return;
+                }
+
+                // Check if we can place here (air or replaceable)
+                if (!block.isEmpty() && !block.isLiquid() && !block.isReplaceable()) {
+                    cancel();
+                    if (onComplete != null) onComplete.accept(placed);
+                    return;
+                }
+
+                // Check if chunk is loaded
+                if (!world.isChunkLoaded(block.getChunk())) {
+                    cancel();
+                    if (onComplete != null) onComplete.accept(placed);
+                    return;
+                }
+
+                // Place chain block and display entity
+                block.setType(chainMaterial);
+                display.spawnRopeDisplay(loc);
+                placed++;
+                currentIndex++;
+            }
+        }.runTaskTimer(plugin, 0, ticksPerBlock);
+    }
+
+    /**
      * Breaks an entire rope from any block in it.
      * Removes all chain blocks and display entities.
      *
@@ -106,6 +171,25 @@ public class Ropes {
         // Start placing from one block below the current bottom
         Location placeStart = current.clone().subtract(0, 1, 0);
         return placeRope(placeStart, additionalLength);
+    }
+
+    /**
+     * Extends an existing rope from its bottom with animation.
+     *
+     * @param bottomBlock The bottom block of the existing rope
+     * @param additionalLength How many meters to add
+     * @param onComplete Callback invoked when extension finishes, receives the actual number of blocks added
+     */
+    public void extendRopeAnimated(Location bottomBlock, int additionalLength, Consumer<Integer> onComplete) {
+        // Find the actual bottom by going down until we hit non-rope
+        Location current = bottomBlock.clone();
+        while (isRopeBlock(current.clone().subtract(0, 1, 0))) {
+            current.subtract(0, 1, 0);
+        }
+
+        // Start placing from one block below the current bottom
+        Location placeStart = current.clone().subtract(0, 1, 0);
+        placeRopeAnimated(placeStart, additionalLength, onComplete);
     }
 
     /**
@@ -191,6 +275,44 @@ public class Ropes {
             world.dropItemNaturally(loc, coil);
             remaining -= coilLength;
         }
+    }
+
+    /**
+     * Finds the nearest rope block within the given radius of a location.
+     *
+     * @param center The center location to search from
+     * @param radius The search radius in blocks
+     * @return The nearest rope block location, or null if none found
+     */
+    public Location findNearestRope(Location center, double radius) {
+        if (center == null || center.getWorld() == null) return null;
+
+        Location nearest = null;
+        double nearestDistSq = Double.MAX_VALUE;
+
+        int searchRadius = (int) Math.ceil(radius);
+        Block centerBlock = center.getBlock();
+
+        for (int dx = -searchRadius; dx <= searchRadius; dx++) {
+            for (int dy = -searchRadius; dy <= searchRadius; dy++) {
+                for (int dz = -searchRadius; dz <= searchRadius; dz++) {
+                    Block checkBlock = centerBlock.getRelative(dx, dy, dz);
+                    Location checkLoc = checkBlock.getLocation();
+
+                    Location blockCenter = checkLoc.clone().add(0.5, 0.5, 0.5);
+                    double distSq = center.distanceSquared(blockCenter);
+
+                    if (distSq <= radius * radius && isRopeBlock(checkLoc)) {
+                        if (distSq < nearestDistSq) {
+                            nearestDistSq = distSq;
+                            nearest = checkLoc;
+                        }
+                    }
+                }
+            }
+        }
+
+        return nearest;
     }
 
     /**

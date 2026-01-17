@@ -5,10 +5,13 @@ api-version: 1.21
 author: def9a2a4
 description: ropes you can place, shoot out of a bow, and climb.
 
+softdepend:
+  - ProtocolLib
+
 commands:
   ropes:
     description: Ropes plugin commands
-    usage: /<command> <reload|info|delete_all|give|help>
+    usage: /<command> <reload|info|delete_all|give|recipes|help>
 
 permissions:
   ropes.use:
@@ -19,4 +22,7 @@ permissions:
     default: op
   ropes.give:
     description: Allows giving rope items
+    default: op
+  ropes.recipes:
+    description: Allows unlocking rope recipes via command
     default: op

@@ -3,8 +3,10 @@ package anon.def9a2a4.ropes;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Particle;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.type.Fence;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -19,7 +21,9 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.inventory.PrepareItemCraftEvent;
+import org.bukkit.event.player.PlayerAdvancementDoneEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.EquipmentSlot;
@@ -31,6 +35,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 public class Listeners implements Listener {
     private final RopesPlugin plugin;
@@ -149,11 +154,21 @@ public class Listeners implements Listener {
 
             // Clicked on existing rope - extend it
             if (ropes.isRopeBlock(blockLoc)) {
-                int added = ropes.extendRope(blockLoc, coilLength);
-                if (added > 0) {
-                    // Consume the coil
-                    consumeItemInHand(player);
+                // Consume the coil immediately
+                consumeItemInHand(player);
 
+                if (config.isAnimationEnabled()) {
+                    ropes.extendRopeAnimated(blockLoc, coilLength, added -> {
+                        // Refund unused rope
+                        int unused = coilLength - added;
+                        if (unused > 0) {
+                            ItemStack refund = items.createRopeCoil(unused);
+                            player.getInventory().addItem(refund).values()
+                                .forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+                        }
+                    });
+                } else {
+                    int added = ropes.extendRope(blockLoc, coilLength);
                     // Refund unused rope
                     int unused = coilLength - added;
                     if (unused > 0) {
@@ -180,8 +195,8 @@ public class Listeners implements Listener {
                 targetBlock = clickedBlock.getRelative(face);
             }
 
-            // Special case: clicking on top of a fence - the fence itself is the anchor
-            if (face == BlockFace.UP && config.isAnchorFence(clickedBlock.getType())) {
+            // Special case: clicking on a fence (top or side) - the fence itself is the anchor
+            if (config.isAnchorFence(clickedBlock.getType())) {
                 targetBlock = clickedBlock.getRelative(BlockFace.DOWN);
             }
 
@@ -200,10 +215,22 @@ public class Listeners implements Listener {
 
             // If placing below a fence that already has rope, extend the existing rope
             if (config.isAnchorFence(anchorBlock.getType()) && ropes.isRopeBlock(targetBlock.getLocation())) {
-                int added = ropes.extendRope(targetBlock.getLocation(), coilLength);
-                if (added > 0) {
-                    consumeItemInHand(player);
+                // Consume the coil immediately
+                consumeItemInHand(player);
 
+                if (config.isAnimationEnabled()) {
+                    ropes.extendRopeAnimated(targetBlock.getLocation(), coilLength, added -> {
+                        // Refund unused rope
+                        int unused = coilLength - added;
+                        if (unused > 0) {
+                            ItemStack refund = items.createRopeCoil(unused);
+                            player.getInventory().addItem(refund).values()
+                                .forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+                        }
+                    });
+                } else {
+                    int added = ropes.extendRope(targetBlock.getLocation(), coilLength);
+                    // Refund unused rope
                     int unused = coilLength - added;
                     if (unused > 0) {
                         ItemStack refund = items.createRopeCoil(unused);
@@ -217,11 +244,21 @@ public class Listeners implements Listener {
             // Check if target is air or replaceable
             if (!targetBlock.isEmpty() && !targetBlock.isReplaceable()) return;
 
-            int placed = ropes.placeRope(targetBlock.getLocation(), coilLength);
-            if (placed > 0) {
-                // Consume the coil
-                consumeItemInHand(player);
+            // Consume the coil immediately (before animation starts)
+            consumeItemInHand(player);
 
+            if (config.isAnimationEnabled()) {
+                ropes.placeRopeAnimated(targetBlock.getLocation(), coilLength, placed -> {
+                    // Refund unused rope
+                    int unused = coilLength - placed;
+                    if (unused > 0) {
+                        ItemStack refund = items.createRopeCoil(unused);
+                        player.getInventory().addItem(refund).values()
+                            .forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+                    }
+                });
+            } else {
+                int placed = ropes.placeRope(targetBlock.getLocation(), coilLength);
                 // Refund unused rope
                 int unused = coilLength - placed;
                 if (unused > 0) {
@@ -240,6 +277,19 @@ public class Listeners implements Listener {
         } else {
             player.getInventory().setItemInMainHand(null);
         }
+    }
+
+    private void updateFenceConnections(Block fenceBlock) {
+        if (!(fenceBlock.getBlockData() instanceof Fence fence)) {
+            return;
+        }
+        BlockFace[] horizontalFaces = {BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST};
+        for (BlockFace face : horizontalFaces) {
+            Block neighbor = fenceBlock.getRelative(face);
+            boolean shouldConnect = neighbor.getType().isSolid();
+            fence.setFace(face, shouldConnect);
+        }
+        fenceBlock.setBlockData(fence);
     }
 
     // ==================== BLOCK BREAK - ANCHOR DESTRUCTION ====================
@@ -337,9 +387,12 @@ public class Listeners implements Listener {
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
         Location playerLoc = player.getLocation();
+        UUID playerId = player.getUniqueId();
 
         // Check if player is on or adjacent to a rope
-        if (!isNearRope(playerLoc)) return;
+        if (!isNearRope(playerLoc)) {
+            return;
+        }
 
         double climbSpeed = config.getClimbSpeed();
         Vector velocity = player.getVelocity();
@@ -347,12 +400,20 @@ public class Listeners implements Listener {
         if (player.isSneaking()) {
             // Descend
             velocity.setY(-climbSpeed);
-        } else if (velocity.getY() > 0.05) {
-            // Player is holding jump (positive Y velocity indicates jump attempt)
-            velocity.setY(climbSpeed);
+        } else if (plugin.hasProtocolLib()) {
+            // ProtocolLib available - use accurate jump detection
+            if (plugin.isPlayerJumping(playerId)) {
+                velocity.setY(climbSpeed);
+            } else {
+                velocity.setY(0);
+            }
         } else {
-            // Hold position - stand still
-            velocity.setY(0);
+            // Fallback: velocity-based detection (less accurate)
+            if (velocity.getY() > 0.1) {
+                velocity.setY(climbSpeed);
+            } else {
+                velocity.setY(0);
+            }
         }
 
         player.setVelocity(velocity);
@@ -418,6 +479,16 @@ public class Listeners implements Listener {
 
         int ropeLength = arrow.getPersistentDataContainer().get(key, PersistentDataType.INTEGER);
 
+        // Spawn impact particles
+        arrow.getWorld().spawnParticle(
+            Particle.BLOCK,
+            arrow.getLocation(),
+            15,
+            0.2, 0.2, 0.2,
+            0.1,
+            config.getArrowImpactParticleMaterial().createBlockData()
+        );
+
         // Arrow hit an entity - drop rope coil
         if (event.getHitEntity() != null) {
             Location dropLoc = arrow.getLocation();
@@ -429,6 +500,45 @@ public class Listeners implements Listener {
         // Arrow hit a block
         Block hitBlock = event.getHitBlock();
         if (hitBlock == null) {
+            arrow.remove();
+            return;
+        }
+
+        // Check for existing rope to extend
+        Location arrowLoc = arrow.getLocation().clone();
+        Location ropeToExtend = null;
+
+        // First check: Did we directly hit a rope block?
+        if (ropes.isRopeBlock(hitBlock.getLocation())) {
+            ropeToExtend = hitBlock.getLocation();
+        }
+
+        // Second check: Is there a rope nearby within the configured radius?
+        if (ropeToExtend == null) {
+            double extendRadius = config.getRopeArrowExtendRadius();
+            if (extendRadius > 0) {
+                ropeToExtend = ropes.findNearestRope(arrowLoc, extendRadius);
+            }
+        }
+
+        // If we found a rope, extend it
+        if (ropeToExtend != null) {
+            if (config.isAnimationEnabled()) {
+                final int ropeLengthFinal = ropeLength;
+                final Location arrowLocFinal = arrowLoc;
+                ropes.extendRopeAnimated(ropeToExtend, ropeLength, added -> {
+                    int unused = ropeLengthFinal - added;
+                    if (unused > 0) {
+                        ropes.dropRopeCoils(arrowLocFinal, unused);
+                    }
+                });
+            } else {
+                int added = ropes.extendRope(ropeToExtend, ropeLength);
+                int unused = ropeLength - added;
+                if (unused > 0) {
+                    ropes.dropRopeCoils(arrowLoc, unused);
+                }
+            }
             arrow.remove();
             return;
         }
@@ -458,11 +568,16 @@ public class Listeners implements Listener {
                 }
 
                 fenceBlock.setType(config.getFenceMaterial());
-                fenceBlock.getState().update(true, true); // Update for fence connections
+                fenceBlock.getState().update(true, true);
+                updateFenceConnections(fenceBlock);
 
                 // Rope hangs from fence, so length is reduced by 1
                 if (ropeLength > 1) {
-                    ropes.placeRope(fenceBlock.getLocation(), ropeLength - 1);
+                    if (config.isAnimationEnabled()) {
+                        ropes.placeRopeAnimated(fenceBlock.getLocation(), ropeLength - 1, null);
+                    } else {
+                        ropes.placeRope(fenceBlock.getLocation(), ropeLength - 1);
+                    }
                 }
                 arrow.remove();
                 return;
@@ -487,10 +602,15 @@ public class Listeners implements Listener {
                 }
 
                 adjacentBlock.setType(config.getFenceMaterial());
-                adjacentBlock.getState().update(true, true); // Update for fence connections
+                adjacentBlock.getState().update(true, true);
+                updateFenceConnections(adjacentBlock);
 
                 if (ropeLength > 1) {
-                    ropes.placeRope(belowAdjacent.getLocation(), ropeLength - 1);
+                    if (config.isAnimationEnabled()) {
+                        ropes.placeRopeAnimated(belowAdjacent.getLocation(), ropeLength - 1, null);
+                    } else {
+                        ropes.placeRope(belowAdjacent.getLocation(), ropeLength - 1);
+                    }
                 }
                 arrow.remove();
                 return;
@@ -498,7 +618,52 @@ public class Listeners implements Listener {
         }
 
         // Place the rope
-        ropes.placeRope(placementLoc, ropeLength);
+        if (config.isAnimationEnabled()) {
+            ropes.placeRopeAnimated(placementLoc, ropeLength, null);
+        } else {
+            ropes.placeRope(placementLoc, ropeLength);
+        }
         arrow.remove();
+    }
+
+    // ==================== ADVANCEMENT - RECIPE UNLOCK ====================
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        String targetAdvancement = config.getRecipeUnlockAdvancement();
+        if (targetAdvancement == null || targetAdvancement.isEmpty()) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+        NamespacedKey advancementKey = NamespacedKey.fromString(targetAdvancement);
+        if (advancementKey == null) {
+            return;
+        }
+
+        var advancement = plugin.getServer().getAdvancement(advancementKey);
+        if (advancement != null && player.getAdvancementProgress(advancement).isDone()) {
+            unlockRopesRecipes(player);
+        }
+    }
+
+    @EventHandler
+    public void onAdvancementComplete(PlayerAdvancementDoneEvent event) {
+        String targetAdvancement = config.getRecipeUnlockAdvancement();
+        if (targetAdvancement == null || targetAdvancement.isEmpty()) {
+            return;
+        }
+
+        String completedKey = event.getAdvancement().getKey().toString();
+        if (completedKey.equals(targetAdvancement)) {
+            Player player = event.getPlayer();
+            unlockRopesRecipes(player);
+        }
+    }
+
+    private void unlockRopesRecipes(Player player) {
+        player.discoverRecipe(new NamespacedKey(plugin, "rope_coil"));
+        player.discoverRecipe(new NamespacedKey(plugin, "rope_coil_combine"));
+        player.discoverRecipe(new NamespacedKey(plugin, "rope_arrow"));
     }
 }

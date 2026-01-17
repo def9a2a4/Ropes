@@ -29,16 +29,21 @@ public class Config {
     private String ropeBlockDisplayTexture;
     private DisplayScale displayScale;
     private float displayOffsetY;
+    private boolean animationEnabled;
+    private int animationTicksPerBlock;
 
     // Rope Arrow Settings
     private Material fenceMaterial;
+    private double ropeArrowExtendRadius;
     private boolean ropeArrowGlint;
+    private Material arrowImpactParticleMaterial;
     private ItemDisplayConfig ropeArrowItemConfig;
 
     // Recipe Configs
     private RecipeConfig ropeCoilRecipeConfig;
     private boolean ropeCoilCombineEnabled;
     private RecipeConfig ropeArrowRecipeConfig;
+    private String recipeUnlockAdvancement;
 
     public Config(RopesPlugin plugin) {
         this.plugin = plugin;
@@ -105,6 +110,14 @@ public class Config {
         // Display Offset Y
         displayOffsetY = (float) config.getDouble("rope-block.display-offset-y", 0.0);
 
+        // Animation Settings
+        animationEnabled = config.getBoolean("rope-block.animation.enabled", true);
+        animationTicksPerBlock = config.getInt("rope-block.animation.ticks-per-block", 2);
+        if (animationTicksPerBlock < 1) {
+            plugin.getLogger().warning("Invalid animation ticks-per-block value, using default of 2");
+            animationTicksPerBlock = 2;
+        }
+
         // Rope Arrow Settings
         String fenceMaterialName = config.getString("rope-arrow.place-material", "OAK_FENCE");
         fenceMaterial = Material.matchMaterial(fenceMaterialName);
@@ -112,7 +125,15 @@ public class Config {
             plugin.getLogger().warning("Invalid fence material: " + fenceMaterialName + ", using OAK_FENCE");
             fenceMaterial = Material.OAK_FENCE;
         }
+        ropeArrowExtendRadius = config.getDouble("rope-arrow.extend-radius", 0.5);
         ropeArrowGlint = config.getBoolean("rope-arrow.glint", true);
+
+        String particleMaterialName = config.getString("rope-arrow.impact-particle-material", "OAK_PLANKS");
+        arrowImpactParticleMaterial = Material.matchMaterial(particleMaterialName);
+        if (arrowImpactParticleMaterial == null || !arrowImpactParticleMaterial.isBlock()) {
+            plugin.getLogger().warning("Invalid impact particle material: " + particleMaterialName + ", using OAK_PLANKS");
+            arrowImpactParticleMaterial = Material.OAK_PLANKS;
+        }
 
         // Rope Arrow Item Config
         String arrowName = config.getString("rope-arrow.item.name", "<gold>Rope Arrow");
@@ -126,6 +147,7 @@ public class Config {
         ropeCoilRecipeConfig = loadRecipeConfig(config, "recipes.rope-coil", true);
         ropeCoilCombineEnabled = config.getBoolean("recipes.rope-coil-combine.enabled", true);
         ropeArrowRecipeConfig = loadRecipeConfig(config, "recipes.rope-arrow", true);
+        recipeUnlockAdvancement = config.getString("recipes.unlock-on-advancement", "minecraft:adventure/ol_betsy");
     }
 
     private RecipeConfig loadRecipeConfig(FileConfiguration config, String path, boolean defaultEnabled) {
@@ -242,12 +264,28 @@ public class Config {
         return displayOffsetY;
     }
 
+    public boolean isAnimationEnabled() {
+        return animationEnabled;
+    }
+
+    public int getAnimationTicksPerBlock() {
+        return animationTicksPerBlock;
+    }
+
     public Material getFenceMaterial() {
         return fenceMaterial;
     }
 
+    public double getRopeArrowExtendRadius() {
+        return ropeArrowExtendRadius;
+    }
+
     public boolean isRopeArrowGlint() {
         return ropeArrowGlint;
+    }
+
+    public Material getArrowImpactParticleMaterial() {
+        return arrowImpactParticleMaterial;
     }
 
     public ItemDisplayConfig getRopeArrowItemConfig() {
@@ -264,6 +302,10 @@ public class Config {
 
     public RecipeConfig getRopeArrowRecipeConfig() {
         return ropeArrowRecipeConfig;
+    }
+
+    public String getRecipeUnlockAdvancement() {
+        return recipeUnlockAdvancement;
     }
 
     // Inner Records and Enums
