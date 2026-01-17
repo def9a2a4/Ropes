@@ -6,10 +6,10 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.ShapelessRecipe;
 import org.bukkit.inventory.RecipeChoice;
+import org.bukkit.inventory.recipe.CraftingBookCategory;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Map;
-import java.util.UUID;
 
 public class RopesPlugin extends JavaPlugin {
     private static RopesPlugin instance;
@@ -17,7 +17,6 @@ public class RopesPlugin extends JavaPlugin {
     private Items items;
     private Display display;
     private Ropes ropes;
-    private JumpInputListener jumpInputListener;
 
     @Override
     public void onEnable() {
@@ -36,16 +35,6 @@ public class RopesPlugin extends JavaPlugin {
         // Register event listeners
         getServer().getPluginManager().registerEvents(new Listeners(this), this);
 
-        // Register ProtocolLib packet listener for jump detection
-        if (getServer().getPluginManager().getPlugin("ProtocolLib") != null) {
-            jumpInputListener = new JumpInputListener(this);
-            jumpInputListener.register();
-            getLogger().info("ProtocolLib found - rope climbing enabled!");
-        } else {
-            getLogger().warning("ProtocolLib not found! Rope climbing may not work great.");
-            getLogger().warning("Download ProtocolLib at: https://www.spigotmc.org/resources/protocollib.1997/");
-        }
-
         // Register commands
         Commands commands = new Commands(this);
         getCommand("ropes").setExecutor(commands);
@@ -62,18 +51,7 @@ public class RopesPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        if (jumpInputListener != null) {
-            jumpInputListener.unregister();
-        }
         getLogger().info("Ropes plugin disabled!");
-    }
-
-    public boolean isPlayerJumping(UUID playerId) {
-        return jumpInputListener != null && jumpInputListener.isJumping(playerId);
-    }
-
-    public boolean hasProtocolLib() {
-        return jumpInputListener != null;
     }
 
     private void registerRecipes() {
@@ -89,11 +67,12 @@ public class RopesPlugin extends JavaPlugin {
         if (configuration.isRopeCoilCombineEnabled()) {
             ShapelessRecipe combineRecipe = new ShapelessRecipe(
                 new NamespacedKey(this, "rope_coil_combine"),
-                items.createRopeCoil(configuration.getRopeCoilDefaultLength() * 2)
+                items.createCombinedCoilForRecipe()
             );
             // Use MaterialChoice so any player head (rope coil) works, validation in Listeners
             combineRecipe.addIngredient(new RecipeChoice.MaterialChoice(Material.PLAYER_HEAD));
             combineRecipe.addIngredient(new RecipeChoice.MaterialChoice(Material.PLAYER_HEAD));
+            combineRecipe.setCategory(CraftingBookCategory.EQUIPMENT);
             getServer().addRecipe(combineRecipe);
         }
 
@@ -106,7 +85,7 @@ public class RopesPlugin extends JavaPlugin {
 
     private void registerRopeCoilRecipe(Config.RecipeConfig config) {
         NamespacedKey key = new NamespacedKey(this, "rope_coil");
-        var result = items.createRopeCoil(configuration.getRopeCoilDefaultLength());
+        var result = items.createRopeCoilForRecipe(configuration.getRopeCoilDefaultLength());
 
         if (config.type() == Config.RecipeType.SHAPED) {
             ShapedRecipe recipe = new ShapedRecipe(key, result);
@@ -117,6 +96,7 @@ public class RopesPlugin extends JavaPlugin {
                     recipe.setIngredient(entry.getKey(), entry.getValue());
                 }
             }
+            recipe.setCategory(CraftingBookCategory.EQUIPMENT);
             getServer().addRecipe(recipe);
         } else {
             ShapelessRecipe recipe = new ShapelessRecipe(key, result);
@@ -125,13 +105,14 @@ public class RopesPlugin extends JavaPlugin {
                     recipe.addIngredient(ing.amount(), ing.material());
                 }
             }
+            recipe.setCategory(CraftingBookCategory.EQUIPMENT);
             getServer().addRecipe(recipe);
         }
     }
 
     private void registerRopeArrowRecipe(Config.RecipeConfig config) {
         NamespacedKey key = new NamespacedKey(this, "rope_arrow");
-        var result = items.createRopeArrow(configuration.getRopeCoilDefaultLength());
+        var result = items.createRopeArrowForRecipe();
 
         if (config.type() == Config.RecipeType.SHAPED) {
             ShapedRecipe recipe = new ShapedRecipe(key, result);
@@ -146,6 +127,7 @@ public class RopesPlugin extends JavaPlugin {
                     recipe.setIngredient(entry.getKey(), entry.getValue());
                 }
             }
+            recipe.setCategory(CraftingBookCategory.EQUIPMENT);
             getServer().addRecipe(recipe);
         } else {
             ShapelessRecipe recipe = new ShapelessRecipe(key, result);
@@ -160,6 +142,7 @@ public class RopesPlugin extends JavaPlugin {
                     recipe.addIngredient(ing.amount(), ing.material());
                 }
             }
+            recipe.setCategory(CraftingBookCategory.EQUIPMENT);
             getServer().addRecipe(recipe);
         }
     }

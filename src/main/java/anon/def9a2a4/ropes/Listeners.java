@@ -35,7 +35,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 public class Listeners implements Listener {
     private final RopesPlugin plugin;
@@ -387,12 +386,9 @@ public class Listeners implements Listener {
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
         Location playerLoc = player.getLocation();
-        UUID playerId = player.getUniqueId();
 
         // Check if player is on or adjacent to a rope
-        if (!isNearRope(playerLoc)) {
-            return;
-        }
+        if (!isNearRope(playerLoc)) return;
 
         double climbSpeed = config.getClimbSpeed();
         Vector velocity = player.getVelocity();
@@ -400,20 +396,12 @@ public class Listeners implements Listener {
         if (player.isSneaking()) {
             // Descend
             velocity.setY(-climbSpeed);
-        } else if (plugin.hasProtocolLib()) {
-            // ProtocolLib available - use accurate jump detection
-            if (plugin.isPlayerJumping(playerId)) {
-                velocity.setY(climbSpeed);
-            } else {
-                velocity.setY(0);
-            }
+        } else if (player.isSprinting() || velocity.getY() > config.getClimbVelocityThreshold()) {
+            // Ascend (sprint or jump)
+            velocity.setY(climbSpeed);
         } else {
-            // Fallback: velocity-based detection (less accurate)
-            if (velocity.getY() > 0.1) {
-                velocity.setY(climbSpeed);
-            } else {
-                velocity.setY(0);
-            }
+            // Hold position - stand still
+            velocity.setY(0);
         }
 
         player.setVelocity(velocity);

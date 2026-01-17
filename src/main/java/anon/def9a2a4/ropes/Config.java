@@ -24,6 +24,7 @@ public class Config {
     // Rope Block Settings
     private Material chainMaterial;
     private double climbSpeed;
+    private double climbVelocityThreshold;
     private int interactionRadius;
     private Set<Material> anchorFences;
     private String ropeBlockDisplayTexture;
@@ -80,6 +81,7 @@ public class Config {
             plugin.getLogger().warning("Invalid chain material: " + chainMaterialName + ", using " + chainMaterial.name());
         }
         climbSpeed = config.getDouble("rope-block.climb-speed", 0.2);
+        climbVelocityThreshold = config.getDouble("rope-block.climb-velocity-threshold", 0.05);
         interactionRadius = config.getInt("rope-block.interaction-radius", 1);
 
         // Anchor Fences
@@ -238,6 +240,10 @@ public class Config {
 
     public double getClimbSpeed() {
         return climbSpeed;
+    }
+
+    public double getClimbVelocityThreshold() {
+        return climbVelocityThreshold;
     }
 
     public int getInteractionRadius() {

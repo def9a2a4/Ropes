@@ -1,8 +1,6 @@
 # Ropes
 
-A Minecraft Paper plugin that lets you place, shoot, and climb ropes.
-
-Get it on [Modrinth](https://modrinth.com/project/ropes), [ProtocolLib](https://www.spigotmc.org/resources/protocollib.1997/) is highly recommended.
+A Minecraft Paper plugin that lets you place, shoot, and climb ropes. Get it on [Modrinth](https://modrinth.com/project/ropes).
 
 # Features
 
@@ -11,23 +9,41 @@ Get it on [Modrinth](https://modrinth.com/project/ropes), [ProtocolLib](https://
 - **Climbing** - Jump to climb ropes, sneak to descend
 
 
-## Placing Ropes
+| Rope Coil | Rope Arrow |
+|:-:|:-:|
+| ![Placing a rope coil](docs/assets/rope_coil.gif) | ![Shooting a rope arrow](docs/assets/rope_arrow.gif) |
+| *Placing a rope coil* | *Shooting a rope arrow* |
+
+## Rope Coils
 
 Right-click with a rope coil to place a rope hanging downward, as long as there is a block above for the rope to attach to. The rope extends down until it hits an obstacle or runs out of length. You can also place a rope on a fence post if there is space for the rope below it. To extend an existing rope, right-click it with another rope coil.
 
+## Rope Arrows
+
+Shoot a rope arrow from a bow to place a rope at a distance. The rope will attach where the arrow lands.
+
 ## Climbing
 
-- **Hold jump** to climb upward
+- **Jump/Spacebar** to start climbing
+- **Sprint and move** to continue climbing or change direction to up when moving down
 - **Hold sneak** to descend
 
 ### Breaking Ropes
 
 Left-click a rope to break it and receive rope coils back. Breaking the anchor block at the top destroys the entire rope.
 
+## Crafting
+
+| Recipe | Description |
+|:-:|:--|
+| ![Rope Coil recipe](docs/assets/craft-rope-coil.png) | *Craft a Rope Coil with  6 string, unshaped. Resulting rope coil length is configurable.* |
+| ![Rope Arrow recipe](docs/assets/craft-rope-arrow.png) | *Craft a Rope Arrow by combining a Rope Coil with an arrow and sticks.* |
+| ![Combining Rope Coils](docs/assets/craft-combine.png) | *Combine two Rope Coils to add their lengths together (up to 16 blocks, configurable).* |
+
 
 # Installation
 
-Download the latest release from [Modrinth](https://modrinth.com/project/ropes), and place the JAR file in your server's `plugins` folder. Restart the server. [ProtocolLib](https://www.spigotmc.org/resources/protocollib.1997/) is **HIGHLY RECOMMENDED,** climbing ropes will be buggy without it.
+Download the latest release from [Modrinth](https://modrinth.com/project/ropes), and place the JAR file in your server's `plugins` folder. Restart the server.
 
 
 

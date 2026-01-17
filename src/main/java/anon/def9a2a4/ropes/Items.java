@@ -1,7 +1,5 @@
 package anon.def9a2a4.ropes;
 
-import com.destroystokyo.paper.profile.PlayerProfile;
-import com.destroystokyo.paper.profile.ProfileProperty;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -18,6 +16,8 @@ import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.net.URL;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
@@ -56,10 +56,8 @@ public class Items {
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta meta = (SkullMeta) head.getItemMeta();
 
-        // Set custom texture
-        PlayerProfile profile = Bukkit.createProfile(UUID.randomUUID());
-        profile.setProperty(new ProfileProperty("textures", plugin.getConfiguration().getHeadTexture()));
-        meta.setPlayerProfile(profile);
+        // Set custom texture using URL extraction (works for recipe book display)
+        applyTextureFromBase64(meta, plugin.getConfiguration().getHeadTexture());
 
         // Get item config
         Config.ItemDisplayConfig itemConfig = plugin.getConfiguration().getRopeCoilItemConfig();
@@ -78,6 +76,40 @@ public class Items {
 
         head.setItemMeta(meta);
         return head;
+    }
+
+    /**
+     * Applies a custom texture to a player head from a Base64-encoded texture value.
+     * Extracts the skin URL from the base64 JSON and uses setOwnerProfile for proper
+     * recipe book display.
+     */
+    private void applyTextureFromBase64(SkullMeta meta, String textureBase64) {
+        if (textureBase64 == null || textureBase64.isEmpty()) {
+            return;
+        }
+
+        try {
+            // Decode Base64 to get texture URL (format: {"textures":{"SKIN":{"url":"..."}}})
+            String decoded = new String(Base64.getDecoder().decode(textureBase64));
+
+            // Extract URL from JSON
+            int urlStart = decoded.indexOf("\"url\":\"") + 7;
+            int urlEnd = decoded.indexOf("\"", urlStart);
+
+            if (urlStart > 7 && urlEnd > urlStart) {
+                String urlString = decoded.substring(urlStart, urlEnd);
+                URL textureUrl = new URL(urlString);
+
+                // Create player profile with texture via URL
+                var profile = Bukkit.createPlayerProfile(UUID.randomUUID());
+                var textures = profile.getTextures();
+                textures.setSkin(textureUrl);
+                profile.setTextures(textures);
+                meta.setOwnerProfile(profile);
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to apply head texture: " + e.getMessage());
+        }
     }
 
     public int getRopeLength(ItemStack item) {
@@ -123,6 +155,76 @@ public class Items {
 
         // Store rope length in PDC
         meta.getPersistentDataContainer().set(ARROW_ROPE_LENGTH_KEY, PersistentDataType.INTEGER, ropeLength);
+
+        arrow.setItemMeta(meta);
+        return arrow;
+    }
+
+    // ==================== Recipe Book Placeholder Items ====================
+    // These methods create items specifically for recipe book display.
+    // They have different names/lore than the actual crafted items.
+
+    /**
+     * Creates a rope coil placeholder for the recipe book.
+     * Same as normal but with "(unshaped)" added to lore.
+     */
+    public ItemStack createRopeCoilForRecipe(int meters) {
+        ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+        SkullMeta meta = (SkullMeta) head.getItemMeta();
+
+        applyTextureFromBase64(meta, plugin.getConfiguration().getHeadTexture());
+
+        Config.ItemDisplayConfig itemConfig = plugin.getConfiguration().getRopeCoilItemConfig();
+        TagResolver metersPlaceholder = Placeholder.unparsed("meters", String.valueOf(meters));
+
+        meta.displayName(parseText(itemConfig.nameTemplate(), metersPlaceholder));
+
+        // Add "(unshaped)" to the lore
+        List<Component> lore = new java.util.ArrayList<>(parseLore(itemConfig.loreTemplates(), metersPlaceholder));
+        lore.add(parseText("<gray>(unshaped)"));
+        meta.lore(lore);
+
+        meta.getPersistentDataContainer().set(ROPE_LENGTH_KEY, PersistentDataType.INTEGER, meters);
+
+        head.setItemMeta(meta);
+        return head;
+    }
+
+    /**
+     * Creates a combined rope coil placeholder for the recipe book.
+     * Name: "Combined Rope Coil", Lore: "Combine any two rope coils"
+     */
+    public ItemStack createCombinedCoilForRecipe() {
+        ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+        SkullMeta meta = (SkullMeta) head.getItemMeta();
+
+        applyTextureFromBase64(meta, plugin.getConfiguration().getHeadTexture());
+
+        meta.displayName(parseText("<gold>Combined Rope Coil"));
+        meta.lore(List.of(parseText("<gray>Combine any two rope coils")));
+
+        head.setItemMeta(meta);
+        return head;
+    }
+
+    /**
+     * Creates a rope arrow placeholder for the recipe book.
+     * Name: "Rope Arrow" (no length), Lore explains it can be crafted with any rope coil.
+     */
+    public ItemStack createRopeArrowForRecipe() {
+        ItemStack arrow = new ItemStack(Material.ARROW);
+        ItemMeta meta = arrow.getItemMeta();
+
+        meta.displayName(parseText("<gold>Rope Arrow"));
+        meta.lore(List.of(
+            parseText("<gray>Places a rope when it lands"),
+            parseText("<gray>Crafted with a rope coil of any length")
+        ));
+
+        if (plugin.getConfiguration().isRopeArrowGlint()) {
+            meta.addEnchant(Enchantment.INFINITY, 1, true);
+            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        }
 
         arrow.setItemMeta(meta);
         return arrow;

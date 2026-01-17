@@ -1,6 +1,7 @@
 data/
 
 docs/textures/dev/
+docs/assets/dev/
 
 # Server directory
 server/*

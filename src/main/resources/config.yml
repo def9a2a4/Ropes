@@ -20,6 +20,8 @@ rope-block:
   chain-material: WAXED_EXPOSED_COPPER_CHAIN
   # Blocks per tick when climbing
   climb-speed: 0.2
+  # Minimum upward velocity to trigger climbing (jumping detection)
+  climb-velocity-threshold: 0.05
   # Manhattan distance from rope for climbing to work
   interaction-radius: 0
   # Fence types that can anchor ropes (when air or rope below)
