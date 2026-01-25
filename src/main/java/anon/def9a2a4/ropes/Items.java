@@ -57,7 +57,7 @@ public class Items {
         SkullMeta meta = (SkullMeta) head.getItemMeta();
 
         // Set custom texture using URL extraction (works for recipe book display)
-        applyTextureFromBase64(meta, plugin.getConfiguration().getHeadTexture());
+        applyTextureFromBase64(meta, plugin.getConfiguration().getHeadTexture(), meters);
 
         // Get item config
         Config.ItemDisplayConfig itemConfig = plugin.getConfiguration().getRopeCoilItemConfig();
@@ -74,6 +74,9 @@ public class Items {
         // Store length in PDC
         meta.getPersistentDataContainer().set(ROPE_LENGTH_KEY, PersistentDataType.INTEGER, meters);
 
+        // Allow stacking of same-length coils
+        meta.setMaxStackSize(64);
+
         head.setItemMeta(meta);
         return head;
     }
@@ -82,8 +85,12 @@ public class Items {
      * Applies a custom texture to a player head from a Base64-encoded texture value.
      * Extracts the skin URL from the base64 JSON and uses setOwnerProfile for proper
      * recipe book display.
+     *
+     * @param meta The skull meta to apply the texture to
+     * @param textureBase64 The base64-encoded texture data
+     * @param ropeLength The rope length, used to generate a deterministic UUID so same-length coils can stack
      */
-    private void applyTextureFromBase64(SkullMeta meta, String textureBase64) {
+    private void applyTextureFromBase64(SkullMeta meta, String textureBase64, int ropeLength) {
         if (textureBase64 == null || textureBase64.isEmpty()) {
             return;
         }
@@ -100,8 +107,10 @@ public class Items {
                 String urlString = decoded.substring(urlStart, urlEnd);
                 URL textureUrl = new URL(urlString);
 
-                // Create player profile with texture via URL
-                var profile = Bukkit.createPlayerProfile(UUID.randomUUID());
+                // Create player profile with deterministic UUID based on rope length
+                // This ensures same-length coils have identical profiles and can stack
+                UUID textureUuid = new UUID(0x526F7065436F696CL, ropeLength); // "RopeCoil" + length
+                var profile = Bukkit.createPlayerProfile(textureUuid);
                 var textures = profile.getTextures();
                 textures.setSkin(textureUrl);
                 profile.setTextures(textures);
@@ -156,6 +165,9 @@ public class Items {
         // Store rope length in PDC
         meta.getPersistentDataContainer().set(ARROW_ROPE_LENGTH_KEY, PersistentDataType.INTEGER, ropeLength);
 
+        // Allow stacking of same-length arrows
+        meta.setMaxStackSize(64);
+
         arrow.setItemMeta(meta);
         return arrow;
     }
@@ -172,7 +184,7 @@ public class Items {
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta meta = (SkullMeta) head.getItemMeta();
 
-        applyTextureFromBase64(meta, plugin.getConfiguration().getHeadTexture());
+        applyTextureFromBase64(meta, plugin.getConfiguration().getHeadTexture(), meters);
 
         Config.ItemDisplayConfig itemConfig = plugin.getConfiguration().getRopeCoilItemConfig();
         TagResolver metersPlaceholder = Placeholder.unparsed("meters", String.valueOf(meters));
@@ -198,7 +210,7 @@ public class Items {
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta meta = (SkullMeta) head.getItemMeta();
 
-        applyTextureFromBase64(meta, plugin.getConfiguration().getHeadTexture());
+        applyTextureFromBase64(meta, plugin.getConfiguration().getHeadTexture(), 0);
 
         meta.displayName(parseText("<gold>Combined Rope Coil"));
         meta.lore(List.of(parseText("<gray>Combine any two rope coils")));
@@ -225,6 +237,9 @@ public class Items {
             meta.addEnchant(Enchantment.INFINITY, 1, true);
             meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
         }
+
+        // Add PDC marker so isRopeArrow() returns true and crafting handler replaces with correct length
+        meta.getPersistentDataContainer().set(ARROW_ROPE_LENGTH_KEY, PersistentDataType.INTEGER, 0);
 
         arrow.setItemMeta(meta);
         return arrow;
