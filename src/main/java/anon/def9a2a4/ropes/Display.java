@@ -129,7 +129,10 @@ public class Display {
      */
     private ItemStack createRopeDisplayItem() {
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
-        SkullMeta meta = (SkullMeta) head.getItemMeta();
+        if (!(head.getItemMeta() instanceof SkullMeta meta)) {
+            plugin.getLogger().warning("Failed to get skull meta for rope display item");
+            return head;
+        }
 
         PlayerProfile profile = Bukkit.createProfile(UUID.randomUUID());
         profile.setProperty(new ProfileProperty("textures", plugin.getConfiguration().getRopeBlockDisplayTexture()));

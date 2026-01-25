@@ -54,7 +54,10 @@ public class Items {
 
     public ItemStack createRopeCoil(int meters) {
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
-        SkullMeta meta = (SkullMeta) head.getItemMeta();
+        if (!(head.getItemMeta() instanceof SkullMeta meta)) {
+            plugin.getLogger().warning("Failed to get skull meta for rope coil");
+            return head;
+        }
 
         // Set custom texture using URL extraction (works for recipe book display)
         applyTextureFromBase64(meta, plugin.getConfiguration().getHeadTexture(), meters);
@@ -143,6 +146,10 @@ public class Items {
     public ItemStack createRopeArrow(int ropeLength) {
         ItemStack arrow = new ItemStack(Material.ARROW);
         ItemMeta meta = arrow.getItemMeta();
+        if (meta == null) {
+            plugin.getLogger().warning("Failed to get item meta for rope arrow");
+            return arrow;
+        }
 
         // Get item config
         Config.ItemDisplayConfig itemConfig = plugin.getConfiguration().getRopeArrowItemConfig();
@@ -182,7 +189,10 @@ public class Items {
      */
     public ItemStack createRopeCoilForRecipe(int meters) {
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
-        SkullMeta meta = (SkullMeta) head.getItemMeta();
+        if (!(head.getItemMeta() instanceof SkullMeta meta)) {
+            plugin.getLogger().warning("Failed to get skull meta for rope coil recipe item");
+            return head;
+        }
 
         applyTextureFromBase64(meta, plugin.getConfiguration().getHeadTexture(), meters);
 
@@ -208,7 +218,10 @@ public class Items {
      */
     public ItemStack createCombinedCoilForRecipe() {
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
-        SkullMeta meta = (SkullMeta) head.getItemMeta();
+        if (!(head.getItemMeta() instanceof SkullMeta meta)) {
+            plugin.getLogger().warning("Failed to get skull meta for combined coil recipe item");
+            return head;
+        }
 
         applyTextureFromBase64(meta, plugin.getConfiguration().getHeadTexture(), 0);
 
@@ -226,6 +239,10 @@ public class Items {
     public ItemStack createRopeArrowForRecipe() {
         ItemStack arrow = new ItemStack(Material.ARROW);
         ItemMeta meta = arrow.getItemMeta();
+        if (meta == null) {
+            plugin.getLogger().warning("Failed to get item meta for rope arrow recipe item");
+            return arrow;
+        }
 
         meta.displayName(parseText("<gold>Rope Arrow"));
         meta.lore(List.of(
