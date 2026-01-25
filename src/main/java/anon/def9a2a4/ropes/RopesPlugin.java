@@ -44,7 +44,7 @@ public class RopesPlugin extends JavaPlugin {
         registerRecipes();
 
         // Initialize bStats
-        new Metrics(this, 12345); // TODO: Replace with actual bStats plugin ID
+        new Metrics(this, 29032);
 
         getLogger().info("Ropes plugin enabled!");
     }
