@@ -148,6 +148,9 @@ public class RopesPlugin extends JavaPlugin {
     }
 
     public static RopesPlugin getInstance() {
+        if (instance == null) {
+            throw new IllegalStateException("RopesPlugin not initialized");
+        }
         return instance;
     }
 

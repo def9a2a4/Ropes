@@ -134,7 +134,7 @@ public class Listeners implements Listener {
 
                 int length = ropes.breakRope(blockLoc);
                 if (length > 0) {
-                    ropes.dropRopeCoils(blockLoc.add(0.5, 0.5, 0.5), length);
+                    ropes.dropRopeCoils(blockLoc.clone().add(0.5, 0.5, 0.5), length);
                 }
             }
             return;
@@ -309,7 +309,7 @@ public class Listeners implements Listener {
         // This is the anchor - break the entire rope
         int length = ropes.breakRope(belowLoc);
         if (length > 0) {
-            ropes.dropRopeCoils(belowLoc.add(0.5, 0.5, 0.5), length);
+            ropes.dropRopeCoils(belowLoc.clone().add(0.5, 0.5, 0.5), length);
         }
     }
 
@@ -340,7 +340,7 @@ public class Listeners implements Listener {
                     processedAnchors.add(anchor);
                     int length = ropes.breakRope(loc);
                     if (length > 0) {
-                        ropes.dropRopeCoils(anchor.add(0.5, 0.5, 0.5), length);
+                        ropes.dropRopeCoils(anchor.clone().add(0.5, 0.5, 0.5), length);
                     }
                 }
             }
@@ -373,7 +373,7 @@ public class Listeners implements Listener {
                     processedAnchors.add(anchor);
                     int length = ropes.breakRope(loc);
                     if (length > 0) {
-                        ropes.dropRopeCoils(anchor.add(0.5, 0.5, 0.5), length);
+                        ropes.dropRopeCoils(anchor.clone().add(0.5, 0.5, 0.5), length);
                     }
                 }
             }
@@ -392,15 +392,16 @@ public class Listeners implements Listener {
 
         double climbSpeed = config.getClimbSpeed();
         Vector velocity = player.getVelocity();
+        float pitch = playerLoc.getPitch(); // Negative = looking up, Positive = looking down
 
-        if (player.isSneaking()) {
-            // Descend
-            velocity.setY(-climbSpeed);
-        } else if (player.isSprinting() || velocity.getY() > config.getClimbVelocityThreshold()) {
-            // Ascend (sprint or jump)
+        if (pitch < -30) {
+            // Looking up - ascend
             velocity.setY(climbSpeed);
+        } else if (pitch > 30) {
+            // Looking down - descend
+            velocity.setY(-climbSpeed);
         } else {
-            // Hold position - stand still
+            // Looking straight - hold position
             velocity.setY(0);
         }
 
@@ -410,28 +411,16 @@ public class Listeners implements Listener {
 
     private boolean isNearRope(Location loc) {
         int radius = config.getInteractionRadius();
-        Block playerBlock = loc.getBlock();
-
-        // Check blocks within Manhattan distance at feet level
-        for (int dx = -radius; dx <= radius; dx++) {
-            for (int dy = -radius; dy <= radius; dy++) {
-                for (int dz = -radius; dz <= radius; dz++) {
-                    if (Math.abs(dx) + Math.abs(dy) + Math.abs(dz) <= radius) {
-                        Block checkBlock = playerBlock.getRelative(dx, dy, dz);
-                        if (ropes.isRopeBlock(checkBlock.getLocation())) return true;
-                    }
-                }
-            }
-        }
-
-        // Also check at eye level (1.6 blocks up)
+        Block feetBlock = loc.getBlock();
         Block eyeBlock = loc.clone().add(0, 1.6, 0).getBlock();
+
+        // Check blocks within Manhattan distance at both feet and eye level
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dy = -radius; dy <= radius; dy++) {
                 for (int dz = -radius; dz <= radius; dz++) {
                     if (Math.abs(dx) + Math.abs(dy) + Math.abs(dz) <= radius) {
-                        Block checkBlock = eyeBlock.getRelative(dx, dy, dz);
-                        if (ropes.isRopeBlock(checkBlock.getLocation())) return true;
+                        if (ropes.isRopeBlock(feetBlock.getRelative(dx, dy, dz).getLocation())) return true;
+                        if (ropes.isRopeBlock(eyeBlock.getRelative(dx, dy, dz).getLocation())) return true;
                     }
                 }
             }

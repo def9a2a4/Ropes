@@ -86,41 +86,47 @@ public class Ropes {
 
             @Override
             public void run() {
-                if (currentIndex >= length) {
+                try {
+                    if (currentIndex >= length) {
+                        cancel();
+                        if (onComplete != null) onComplete.accept(placed);
+                        return;
+                    }
+
+                    Location loc = anchor.clone().subtract(0, currentIndex, 0);
+                    Block block = loc.getBlock();
+
+                    // Check world boundaries
+                    if (loc.getY() < world.getMinHeight()) {
+                        cancel();
+                        if (onComplete != null) onComplete.accept(placed);
+                        return;
+                    }
+
+                    // Check if we can place here (air or replaceable)
+                    if (!block.isEmpty() && !block.isLiquid() && !block.isReplaceable()) {
+                        cancel();
+                        if (onComplete != null) onComplete.accept(placed);
+                        return;
+                    }
+
+                    // Check if chunk is loaded
+                    if (!world.isChunkLoaded(block.getChunk())) {
+                        cancel();
+                        if (onComplete != null) onComplete.accept(placed);
+                        return;
+                    }
+
+                    // Place chain block and display entity
+                    block.setType(chainMaterial);
+                    display.spawnRopeDisplay(loc);
+                    placed++;
+                    currentIndex++;
+                } catch (Exception e) {
+                    plugin.getLogger().severe("Error during animated rope placement: " + e.getMessage());
                     cancel();
                     if (onComplete != null) onComplete.accept(placed);
-                    return;
                 }
-
-                Location loc = anchor.clone().subtract(0, currentIndex, 0);
-                Block block = loc.getBlock();
-
-                // Check world boundaries
-                if (loc.getY() < world.getMinHeight()) {
-                    cancel();
-                    if (onComplete != null) onComplete.accept(placed);
-                    return;
-                }
-
-                // Check if we can place here (air or replaceable)
-                if (!block.isEmpty() && !block.isLiquid() && !block.isReplaceable()) {
-                    cancel();
-                    if (onComplete != null) onComplete.accept(placed);
-                    return;
-                }
-
-                // Check if chunk is loaded
-                if (!world.isChunkLoaded(block.getChunk())) {
-                    cancel();
-                    if (onComplete != null) onComplete.accept(placed);
-                    return;
-                }
-
-                // Place chain block and display entity
-                block.setType(chainMaterial);
-                display.spawnRopeDisplay(loc);
-                placed++;
-                currentIndex++;
             }
         }.runTaskTimer(plugin, 0, ticksPerBlock);
     }
