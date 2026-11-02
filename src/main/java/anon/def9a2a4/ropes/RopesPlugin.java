@@ -45,13 +45,10 @@ public class RopesPlugin extends JavaPlugin {
 
         // Initialize bStats
         new Metrics(this, 29032);
-
-        getLogger().info("Ropes plugin enabled!");
     }
 
     @Override
     public void onDisable() {
-        getLogger().info("Ropes plugin disabled!");
     }
 
     private void registerRecipes() {
