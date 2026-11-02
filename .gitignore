@@ -49,3 +49,7 @@ bin/
 # Python
 __pycache__/**
 *.pyc
+
+# CI startup test
+test-server/
+.temp/
