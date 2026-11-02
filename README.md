@@ -33,6 +33,10 @@ Shoot a rope arrow from a bow to place a rope at a distance. The rope will attac
 
 Left-click a rope to break it and receive rope coils back. Breaking the anchor block at the top destroys the entire rope.
 
+### Protected areas
+
+Ropes respect protection plugins (Towny, WorldGuard, GriefPrevention, Lands, ...). A player can only break a rope if they're allowed to break every block of it, and a rope they place or shoot stops at the first block they aren't allowed to build in; the unused length is given back as rope coils.
+
 ## Crafting
 
 |                         Recipe                         | Description                                                                               |
@@ -58,7 +62,7 @@ Download the latest release from [Modrinth](https://modrinth.com/project/ropes),
 | `/ropes give {coil,arrow} [length]` | Give yourself a rope item (OP)                          |
 | `/ropes recipes [player]`           | Unlock rope recipes for yourself or another player (OP) |
 | `/ropes reload`                     | Reload configuration (OP)                               |
-| `/ropes delete_all confirm`         | Remove all placed ropes (OP)                            |
+| `/ropes delete_all confirm`         | Remove all ropes in loaded chunks (OP)                  |
 
 ## Configuration
 

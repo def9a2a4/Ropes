@@ -17,12 +17,22 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 public class Commands implements CommandExecutor, TabCompleter {
     private final RopesPlugin plugin;
-    private static final List<String> SUBCOMMANDS = List.of("reload", "info", "delete_all", "give", "recipes", "help");
+    // Subcommand -> permission needed to use it (null = everyone); also drives tab completion
+    private static final Map<String, String> SUBCOMMANDS = new LinkedHashMap<>();
+    static {
+        SUBCOMMANDS.put("reload", "ropes.admin");
+        SUBCOMMANDS.put("info", "ropes.use");
+        SUBCOMMANDS.put("delete_all", "ropes.admin");
+        SUBCOMMANDS.put("give", "ropes.give");
+        SUBCOMMANDS.put("recipes", "ropes.recipes");
+        SUBCOMMANDS.put("help", null);
+    }
     private static final List<String> GIVE_TYPES = List.of("coil", "arrow");
     private static final String GITHUB_URL = "https://github.com/def9a2a4/Ropes";
     private static final String DISCORD_URL = "https://def9a2a4.github.io/discord.html";
@@ -111,7 +121,8 @@ public class Commands implements CommandExecutor, TabCompleter {
         }
 
         if (args.length < 2 || !args[1].equalsIgnoreCase("confirm")) {
-            sender.sendMessage(Component.text("Warning: This will delete ALL placed ropes in ALL worlds!", NamedTextColor.RED));
+            sender.sendMessage(Component.text("Warning: This will delete ALL ropes in loaded chunks, in every world!", NamedTextColor.RED));
+            sender.sendMessage(Component.text("Ropes in unloaded chunks are not affected.", NamedTextColor.GRAY));
             sender.sendMessage(Component.text("To confirm, run: /ropes delete_all confirm", NamedTextColor.YELLOW));
             return true;
         }
@@ -238,21 +249,22 @@ public class Commands implements CommandExecutor, TabCompleter {
     private boolean handleHelp(CommandSender sender) {
         sender.sendMessage(Component.text("=== Ropes v" + plugin.getPluginMeta().getVersion() + " ===", NamedTextColor.GOLD));
         sender.sendMessage(Component.text("Place, shoot, and climb ropes.", NamedTextColor.GRAY));
-        sender.sendMessage(Component.text("/ropes help", NamedTextColor.YELLOW)
-            .append(Component.text(" - Show this help message", NamedTextColor.GRAY)));
-        sender.sendMessage(Component.text("/ropes info", NamedTextColor.YELLOW)
-            .append(Component.text(" - Show info about all placed ropes", NamedTextColor.GRAY)));
-        sender.sendMessage(Component.text("/ropes give <coil|arrow> [length]", NamedTextColor.YELLOW)
-            .append(Component.text(" - Give yourself a rope item", NamedTextColor.GRAY)));
-        sender.sendMessage(Component.text("/ropes recipes [player]", NamedTextColor.YELLOW)
-            .append(Component.text(" - Unlock rope recipes", NamedTextColor.GRAY)));
-        sender.sendMessage(Component.text("/ropes reload", NamedTextColor.YELLOW)
-            .append(Component.text(" - Reload the configuration", NamedTextColor.GRAY)));
-        sender.sendMessage(Component.text("/ropes delete_all", NamedTextColor.YELLOW)
-            .append(Component.text(" - Delete all placed ropes", NamedTextColor.GRAY)));
+        helpLine(sender, null, "/ropes help", "Show this help message");
+        helpLine(sender, "ropes.use", "/ropes info", "Show info about all placed ropes");
+        helpLine(sender, "ropes.give", "/ropes give <coil|arrow> [length]", "Give yourself a rope item");
+        helpLine(sender, "ropes.recipes", "/ropes recipes [player]", "Unlock rope recipes");
+        helpLine(sender, "ropes.admin", "/ropes reload", "Reload the configuration");
+        helpLine(sender, "ropes.admin", "/ropes delete_all", "Delete all ropes in loaded chunks");
         sender.sendMessage(link("GitHub", GITHUB_URL));
         sender.sendMessage(link("Discord", DISCORD_URL));
         return true;
+    }
+
+    /** Shows a help line only to senders who can use the command (null permission = everyone). */
+    private static void helpLine(CommandSender sender, String permission, String usage, String description) {
+        if (permission != null && !sender.hasPermission(permission)) return;
+        sender.sendMessage(Component.text(usage, NamedTextColor.YELLOW)
+            .append(Component.text(" - " + description, NamedTextColor.GRAY)));
     }
 
     private static Component link(String label, String url) {
@@ -267,9 +279,10 @@ public class Commands implements CommandExecutor, TabCompleter {
 
         if (args.length == 1) {
             String partial = args[0].toLowerCase();
-            for (String sub : SUBCOMMANDS) {
-                if (sub.startsWith(partial)) {
-                    completions.add(sub);
+            for (Map.Entry<String, String> sub : SUBCOMMANDS.entrySet()) {
+                boolean allowed = sub.getValue() == null || sender.hasPermission(sub.getValue());
+                if (allowed && sub.getKey().startsWith(partial)) {
+                    completions.add(sub.getKey());
                 }
             }
         } else if (args.length == 2) {

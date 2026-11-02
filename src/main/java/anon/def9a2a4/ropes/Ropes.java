@@ -4,6 +4,8 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -26,9 +28,10 @@ public class Ropes {
      *
      * @param anchor The location to start placing rope from (will be the topmost rope block)
      * @param length The desired length in meters/blocks
-     * @return The actual number of blocks placed (may be less if obstructed)
+     * @param placer The player placing the rope, checked against protection plugins per block; null skips the check
+     * @return The actual number of blocks placed (may be less if obstructed or protected)
      */
-    public int placeRope(Location anchor, int length) {
+    public int placeRope(Location anchor, int length, Player placer) {
         World world = anchor.getWorld();
         if (world == null) return 0;
 
@@ -55,7 +58,9 @@ public class Ropes {
             }
 
             // Place chain block and display entity
-            block.setType(chainMaterial);
+            if (!Protection.place(block, chainMaterial, block.getRelative(BlockFace.UP), placer)) {
+                break;
+            }
             display.spawnRopeDisplay(loc);
             placed++;
         }
@@ -68,9 +73,10 @@ public class Ropes {
      *
      * @param anchor The location to start placing rope from (will be the topmost rope block)
      * @param length The desired length in meters/blocks
+     * @param placer The player placing the rope, checked against protection plugins per block; null skips the check
      * @param onComplete Callback invoked when placement finishes, receives the actual number of blocks placed
      */
-    public void placeRopeAnimated(Location anchor, int length, Consumer<Integer> onComplete) {
+    public void placeRopeAnimated(Location anchor, int length, Player placer, Consumer<Integer> onComplete) {
         World world = anchor.getWorld();
         if (world == null) {
             if (onComplete != null) onComplete.accept(0);
@@ -117,8 +123,13 @@ public class Ropes {
                         return;
                     }
 
-                    // Place chain block and display entity
-                    block.setType(chainMaterial);
+                    // Place chain block and display entity (stop if the placer logged out mid-animation)
+                    if ((placer != null && !placer.isOnline())
+                            || !Protection.place(block, chainMaterial, block.getRelative(BlockFace.UP), placer)) {
+                        cancel();
+                        if (onComplete != null) onComplete.accept(placed);
+                        return;
+                    }
                     display.spawnRopeDisplay(loc);
                     placed++;
                     currentIndex++;
@@ -129,6 +140,22 @@ public class Ropes {
                 }
             }
         }.runTaskTimer(plugin, 0, ticksPerBlock);
+    }
+
+    /**
+     * Checks whether the player may break every block of the rope (protection plugins can veto).
+     *
+     * @param anyRopeBlock Any location within the rope
+     * @param breaker The player breaking the rope, or null to allow
+     */
+    public boolean canBreakRope(Location anyRopeBlock, Player breaker) {
+        Location current = findRopeAnchor(anyRopeBlock);
+        if (current == null) return true;
+        while (isRopeBlock(current)) {
+            if (!Protection.canBreak(current.getBlock(), breaker)) return false;
+            current.subtract(0, 1, 0);
+        }
+        return true;
     }
 
     /**
@@ -165,9 +192,10 @@ public class Ropes {
      *
      * @param bottomBlock The bottom block of the existing rope
      * @param additionalLength How many meters to add
+     * @param placer The player extending the rope, or null to skip protection checks
      * @return The actual number of blocks added
      */
-    public int extendRope(Location bottomBlock, int additionalLength) {
+    public int extendRope(Location bottomBlock, int additionalLength, Player placer) {
         // Find the actual bottom by going down until we hit non-rope
         Location current = bottomBlock.clone();
         while (isRopeBlock(current.clone().subtract(0, 1, 0))) {
@@ -176,7 +204,7 @@ public class Ropes {
 
         // Start placing from one block below the current bottom
         Location placeStart = current.clone().subtract(0, 1, 0);
-        return placeRope(placeStart, additionalLength);
+        return placeRope(placeStart, additionalLength, placer);
     }
 
     /**
@@ -184,9 +212,10 @@ public class Ropes {
      *
      * @param bottomBlock The bottom block of the existing rope
      * @param additionalLength How many meters to add
+     * @param placer The player extending the rope, or null to skip protection checks
      * @param onComplete Callback invoked when extension finishes, receives the actual number of blocks added
      */
-    public void extendRopeAnimated(Location bottomBlock, int additionalLength, Consumer<Integer> onComplete) {
+    public void extendRopeAnimated(Location bottomBlock, int additionalLength, Player placer, Consumer<Integer> onComplete) {
         // Find the actual bottom by going down until we hit non-rope
         Location current = bottomBlock.clone();
         while (isRopeBlock(current.clone().subtract(0, 1, 0))) {
@@ -195,7 +224,7 @@ public class Ropes {
 
         // Start placing from one block below the current bottom
         Location placeStart = current.clone().subtract(0, 1, 0);
-        placeRopeAnimated(placeStart, additionalLength, onComplete);
+        placeRopeAnimated(placeStart, additionalLength, placer, onComplete);
     }
 
     /**

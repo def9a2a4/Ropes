@@ -1,5 +1,6 @@
 package anon.def9a2a4.ropes;
 
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -35,6 +36,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public class Listeners implements Listener {
     private final RopesPlugin plugin;
@@ -131,6 +133,8 @@ public class Listeners implements Listener {
         if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
             if (ropes.isRopeBlock(blockLoc)) {
                 event.setCancelled(true);
+                if (player.getGameMode() == GameMode.ADVENTURE) return;
+                if (!ropes.canBreakRope(blockLoc, player)) return;
 
                 int length = ropes.breakRope(blockLoc);
                 if (length > 0) {
@@ -148,6 +152,7 @@ public class Listeners implements Listener {
 
             // Cancel event immediately to prevent rope coil from being placed as a block
             event.setCancelled(true);
+            if (player.getGameMode() == GameMode.ADVENTURE) return;
 
             int coilLength = items.getRopeLength(itemInHand);
 
@@ -157,23 +162,19 @@ public class Listeners implements Listener {
                 consumeItemInHand(player);
 
                 if (config.isAnimationEnabled()) {
-                    ropes.extendRopeAnimated(blockLoc, coilLength, added -> {
+                    ropes.extendRopeAnimated(blockLoc, coilLength, player, added -> {
                         // Refund unused rope
                         int unused = coilLength - added;
                         if (unused > 0) {
-                            ItemStack refund = items.createRopeCoil(unused);
-                            player.getInventory().addItem(refund).values()
-                                .forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+                            refundToPlayer(player, unused);
                         }
                     });
                 } else {
-                    int added = ropes.extendRope(blockLoc, coilLength);
+                    int added = ropes.extendRope(blockLoc, coilLength, player);
                     // Refund unused rope
                     int unused = coilLength - added;
                     if (unused > 0) {
-                        ItemStack refund = items.createRopeCoil(unused);
-                        player.getInventory().addItem(refund).values()
-                            .forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+                        refundToPlayer(player, unused);
                     }
                 }
                 return;
@@ -218,23 +219,19 @@ public class Listeners implements Listener {
                 consumeItemInHand(player);
 
                 if (config.isAnimationEnabled()) {
-                    ropes.extendRopeAnimated(targetBlock.getLocation(), coilLength, added -> {
+                    ropes.extendRopeAnimated(targetBlock.getLocation(), coilLength, player, added -> {
                         // Refund unused rope
                         int unused = coilLength - added;
                         if (unused > 0) {
-                            ItemStack refund = items.createRopeCoil(unused);
-                            player.getInventory().addItem(refund).values()
-                                .forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+                            refundToPlayer(player, unused);
                         }
                     });
                 } else {
-                    int added = ropes.extendRope(targetBlock.getLocation(), coilLength);
+                    int added = ropes.extendRope(targetBlock.getLocation(), coilLength, player);
                     // Refund unused rope
                     int unused = coilLength - added;
                     if (unused > 0) {
-                        ItemStack refund = items.createRopeCoil(unused);
-                        player.getInventory().addItem(refund).values()
-                            .forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+                        refundToPlayer(player, unused);
                     }
                 }
                 return;
@@ -247,26 +244,33 @@ public class Listeners implements Listener {
             consumeItemInHand(player);
 
             if (config.isAnimationEnabled()) {
-                ropes.placeRopeAnimated(targetBlock.getLocation(), coilLength, placed -> {
+                ropes.placeRopeAnimated(targetBlock.getLocation(), coilLength, player, placed -> {
                     // Refund unused rope
                     int unused = coilLength - placed;
                     if (unused > 0) {
-                        ItemStack refund = items.createRopeCoil(unused);
-                        player.getInventory().addItem(refund).values()
-                            .forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+                        refundToPlayer(player, unused);
                     }
                 });
             } else {
-                int placed = ropes.placeRope(targetBlock.getLocation(), coilLength);
+                int placed = ropes.placeRope(targetBlock.getLocation(), coilLength, player);
                 // Refund unused rope
                 int unused = coilLength - placed;
                 if (unused > 0) {
-                    ItemStack refund = items.createRopeCoil(unused);
-                    player.getInventory().addItem(refund).values()
-                        .forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+                    refundToPlayer(player, unused);
                 }
             }
         }
+    }
+
+    /** Gives unused rope back; drops it where they were if they logged out during an animation. */
+    private void refundToPlayer(Player player, int meters) {
+        ItemStack refund = items.createRopeCoil(meters);
+        if (!player.isOnline()) {
+            player.getWorld().dropItemNaturally(player.getLocation(), refund);
+            return;
+        }
+        player.getInventory().addItem(refund).values()
+            .forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
     }
 
     private void consumeItemInHand(Player player) {
@@ -455,6 +459,14 @@ public class Listeners implements Listener {
         if (!arrow.getPersistentDataContainer().has(key, PersistentDataType.INTEGER)) return;
 
         int ropeLength = arrow.getPersistentDataContainer().get(key, PersistentDataType.INTEGER);
+        // Protection checks are made as the shooter. Only players can fire rope arrows, so a missing or
+        // logged-out shooter can't be checked: give the rope back instead of placing it
+        Player shooter = arrow.getShooter() instanceof Player p && p.isOnline() ? p : null;
+        if (shooter == null && event.getHitEntity() == null) {
+            ropes.dropRopeCoils(arrow.getLocation(), ropeLength);
+            arrow.remove();
+            return;
+        }
 
         // Spawn impact particles
         arrow.getWorld().spawnParticle(
@@ -501,20 +513,9 @@ public class Listeners implements Listener {
         // If we found a rope, extend it
         if (ropeToExtend != null) {
             if (config.isAnimationEnabled()) {
-                final int ropeLengthFinal = ropeLength;
-                final Location arrowLocFinal = arrowLoc;
-                ropes.extendRopeAnimated(ropeToExtend, ropeLength, added -> {
-                    int unused = ropeLengthFinal - added;
-                    if (unused > 0) {
-                        ropes.dropRopeCoils(arrowLocFinal, unused);
-                    }
-                });
+                ropes.extendRopeAnimated(ropeToExtend, ropeLength, shooter, refundAt(arrowLoc, ropeLength));
             } else {
-                int added = ropes.extendRope(ropeToExtend, ropeLength);
-                int unused = ropeLength - added;
-                if (unused > 0) {
-                    ropes.dropRopeCoils(arrowLoc, unused);
-                }
+                refundAt(arrowLoc, ropeLength).accept(ropes.extendRope(ropeToExtend, ropeLength, shooter));
             }
             arrow.remove();
             return;
@@ -533,29 +534,9 @@ public class Listeners implements Listener {
             if (above.getType().isSolid()) {
                 placementLoc = hitBlock.getRelative(BlockFace.UP).getLocation();
             } else {
-                // No block above - check if we can place fence and hang rope
-                Block fenceBlock = hitBlock.getRelative(BlockFace.UP);
-                Block belowFence = fenceBlock.getRelative(BlockFace.DOWN);
-
-                // If block below fence is solid, can't hang rope - drop coil
-                if (belowFence.getType().isSolid()) {
-                    arrow.getWorld().dropItemNaturally(arrow.getLocation(), items.createRopeCoil(ropeLength));
-                    arrow.remove();
-                    return;
-                }
-
-                fenceBlock.setType(config.getFenceMaterial());
-                fenceBlock.getState().update(true, true);
-                updateFenceConnections(fenceBlock);
-
-                // Rope hangs from fence, so length is reduced by 1
-                if (ropeLength > 1) {
-                    if (config.isAnimationEnabled()) {
-                        ropes.placeRopeAnimated(fenceBlock.getLocation(), ropeLength - 1, null);
-                    } else {
-                        ropes.placeRope(fenceBlock.getLocation(), ropeLength - 1);
-                    }
-                }
+                // Nothing above to hang from. A fence here would sit on the block the arrow hit, with no
+                // room below it for rope, so give the coil back.
+                ropes.dropRopeCoils(arrowLoc, ropeLength);
                 arrow.remove();
                 return;
             }
@@ -571,23 +552,24 @@ public class Listeners implements Listener {
                 // No anchor - check if we can place fence
                 Block belowAdjacent = adjacentBlock.getRelative(BlockFace.DOWN);
 
-                // If block below is solid, can't hang rope - drop coil
-                if (belowAdjacent.getType().isSolid()) {
+                // If block below is solid, can't hang rope - drop coil. Same if the fence would replace
+                // something (arrows fly through torches, signs, buttons...), which would destroy it.
+                boolean fenceFits = adjacentBlock.isEmpty() || adjacentBlock.isReplaceable() || adjacentBlock.isLiquid();
+                if (belowAdjacent.getType().isSolid() || !fenceFits) {
                     arrow.getWorld().dropItemNaturally(arrow.getLocation(), items.createRopeCoil(ropeLength));
                     arrow.remove();
                     return;
                 }
 
-                adjacentBlock.setType(config.getFenceMaterial());
-                adjacentBlock.getState().update(true, true);
+                if (!Protection.place(adjacentBlock, config.getFenceMaterial(), hitBlock, shooter)) {
+                    ropes.dropRopeCoils(arrowLoc, ropeLength);
+                    arrow.remove();
+                    return;
+                }
                 updateFenceConnections(adjacentBlock);
 
                 if (ropeLength > 1) {
-                    if (config.isAnimationEnabled()) {
-                        ropes.placeRopeAnimated(belowAdjacent.getLocation(), ropeLength - 1, null);
-                    } else {
-                        ropes.placeRope(belowAdjacent.getLocation(), ropeLength - 1);
-                    }
+                    placeArrowRope(belowAdjacent.getLocation(), ropeLength - 1, shooter, arrowLoc);
                 }
                 arrow.remove();
                 return;
@@ -595,12 +577,26 @@ public class Listeners implements Listener {
         }
 
         // Place the rope
-        if (config.isAnimationEnabled()) {
-            ropes.placeRopeAnimated(placementLoc, ropeLength, null);
-        } else {
-            ropes.placeRope(placementLoc, ropeLength);
-        }
+        placeArrowRope(placementLoc, ropeLength, shooter, arrowLoc);
         arrow.remove();
+    }
+
+    /** Places an arrow's rope, dropping whatever length couldn't be placed at the impact point. */
+    private void placeArrowRope(Location anchor, int length, Player shooter, Location dropLoc) {
+        if (config.isAnimationEnabled()) {
+            ropes.placeRopeAnimated(anchor, length, shooter, refundAt(dropLoc, length));
+        } else {
+            refundAt(dropLoc, length).accept(ropes.placeRope(anchor, length, shooter));
+        }
+    }
+
+    private Consumer<Integer> refundAt(Location dropLoc, int length) {
+        return placed -> {
+            int unused = length - placed;
+            if (unused > 0) {
+                ropes.dropRopeCoils(dropLoc, unused);
+            }
+        };
     }
 
     // ==================== ADVANCEMENT - RECIPE UNLOCK ====================

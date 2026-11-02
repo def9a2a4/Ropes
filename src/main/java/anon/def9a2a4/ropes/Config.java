@@ -76,7 +76,11 @@ public class Config {
         if (chainMaterial == null) {
             chainMaterial = Material.matchMaterial("WAXED_EXPOSED_COPPER_CHAIN");
             if (chainMaterial == null) {
-                chainMaterial = Material.CHAIN;
+                // Looked up by name: CHAIN was renamed IRON_CHAIN in 1.21.9, so neither constant compiles everywhere
+                chainMaterial = Material.matchMaterial("IRON_CHAIN");
+            }
+            if (chainMaterial == null) {
+                chainMaterial = Material.matchMaterial("CHAIN");
             }
             plugin.getLogger().warning("Invalid chain material: " + chainMaterialName + ", using " + chainMaterial.name());
         }
