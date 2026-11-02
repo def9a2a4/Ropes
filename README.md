@@ -1,6 +1,8 @@
 # Ropes
 
-A Minecraft Paper plugin that lets you place, shoot, and climb ropes. Get it on [Modrinth](https://modrinth.com/project/ropes).
+[![Download on Modrinth](https://img.shields.io/badge/download-modrinth-00AF5C?style=for-the-badge&logo=modrinth&logoColor=white)](https://modrinth.com/plugin/ropes) [![Join the Discord](https://img.shields.io/badge/discord-join-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://def9a2a4.github.io/discord.html)
+
+A Minecraft Paper plugin that lets you place, shoot, and climb ropes.
 
 # Features
 
