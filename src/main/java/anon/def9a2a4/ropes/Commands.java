@@ -1,7 +1,9 @@
 package anon.def9a2a4.ropes;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
@@ -22,6 +24,8 @@ public class Commands implements CommandExecutor, TabCompleter {
     private final RopesPlugin plugin;
     private static final List<String> SUBCOMMANDS = List.of("reload", "info", "delete_all", "give", "recipes", "help");
     private static final List<String> GIVE_TYPES = List.of("coil", "arrow");
+    private static final String GITHUB_URL = "https://github.com/def9a2a4/Ropes";
+    private static final String DISCORD_URL = "https://def9a2a4.github.io/discord.html";
 
     public Commands(RopesPlugin plugin) {
         this.plugin = plugin;
@@ -232,7 +236,8 @@ public class Commands implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleHelp(CommandSender sender) {
-        sender.sendMessage(Component.text("=== Ropes Commands ===", NamedTextColor.GOLD));
+        sender.sendMessage(Component.text("=== Ropes v" + plugin.getPluginMeta().getVersion() + " ===", NamedTextColor.GOLD));
+        sender.sendMessage(Component.text("Place, shoot, and climb ropes.", NamedTextColor.GRAY));
         sender.sendMessage(Component.text("/ropes help", NamedTextColor.YELLOW)
             .append(Component.text(" - Show this help message", NamedTextColor.GRAY)));
         sender.sendMessage(Component.text("/ropes info", NamedTextColor.YELLOW)
@@ -245,7 +250,15 @@ public class Commands implements CommandExecutor, TabCompleter {
             .append(Component.text(" - Reload the configuration", NamedTextColor.GRAY)));
         sender.sendMessage(Component.text("/ropes delete_all", NamedTextColor.YELLOW)
             .append(Component.text(" - Delete all placed ropes", NamedTextColor.GRAY)));
+        sender.sendMessage(link("GitHub", GITHUB_URL));
+        sender.sendMessage(link("Discord", DISCORD_URL));
         return true;
+    }
+
+    private static Component link(String label, String url) {
+        return Component.text(label + ": ", NamedTextColor.GRAY)
+            .append(Component.text(url, NamedTextColor.AQUA, TextDecoration.UNDERLINED)
+                .clickEvent(ClickEvent.openUrl(url)));
     }
 
     @Override
